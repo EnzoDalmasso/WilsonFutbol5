@@ -1,4 +1,7 @@
 
+using Microsoft.EntityFrameworkCore;
+using Wilson_Futbol_5.Infraestructura.Persistencia;
+
 namespace Wilson_Futbol_5
 {
     public class Program
@@ -12,6 +15,13 @@ namespace Wilson_Futbol_5
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
+
+            // Registramos el DbContext con SQL Server para que EF Core pueda acceder a la base de datos.
+            var cadenaConexion = builder.Configuration.GetConnectionString("WilsonDb")
+                ?? throw new InvalidOperationException("No se encontro la cadena de conexion 'WilsonDb'.");
+
+            builder.Services.AddDbContext<WilsonDbContext>(opciones =>
+                opciones.UseSqlServer(cadenaConexion));
 
             var app = builder.Build();
 
