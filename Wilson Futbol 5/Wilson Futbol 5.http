@@ -1,0 +1,6 @@
+@Wilson_Futbol_5_HostAddress = http://localhost:5032
+
+GET {{Wilson_Futbol_5_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
