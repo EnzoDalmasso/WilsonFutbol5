@@ -9,4 +9,6 @@ namespace Wilson_Futbol_5.Aplicacion.Interfaces;
 public interface IServicioTurnos
 {
     Task<IReadOnlyList<TurnoDisponibleDto>> ObtenerDisponibilidadPorFechaAsync(DateOnly fecha);
+
+    Task<TurnoReservadoDto> ReservarTurnoAsync(ReservarTurnoDto dto);
 }

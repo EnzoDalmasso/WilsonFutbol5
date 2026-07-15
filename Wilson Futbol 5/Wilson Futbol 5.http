@@ -1,6 +1,70 @@
 @Wilson_Futbol_5_HostAddress = http://localhost:5032
+@FechaPrueba = 2026-07-18
+@FechaHoraReserva = 2026-07-18T19:00:00
 
-GET {{Wilson_Futbol_5_HostAddress}}/weatherforecast/
+# Consulta disponibilidad de una fecha.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}
 Accept: application/json
+
+###
+
+# Reserva valida.
+# Si la ejecutas mas de una vez con la misma fecha y hora, la segunda vez debe fallar
+# porque el horario ya queda reservado.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservar
+Content-Type: application/json
+
+{
+  "nombre": "Juan",
+  "apellido": "Perez",
+  "telefonoCliente": "+5492615555555",
+  "fechaHoraInicio": "{{FechaHoraReserva}}",
+  "tipoTurno": 1
+}
+
+###
+
+# Reserva con datos vacios.
+# Debe devolver 400 Bad Request.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservar
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "apellido": "Perez",
+  "telefonoCliente": "",
+  "fechaHoraInicio": "2026-07-18T20:00:00",
+  "tipoTurno": 1
+}
+
+###
+
+# Reserva fuera del horario de atencion.
+# La cancha atiende de 18:00 a 23:00, entonces 10:00 debe devolver 400 Bad Request.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservar
+Content-Type: application/json
+
+{
+  "nombre": "Carlos",
+  "apellido": "FueraDeHorario",
+  "telefonoCliente": "+5492615555556",
+  "fechaHoraInicio": "2026-07-18T10:00:00",
+  "tipoTurno": 1
+}
+
+###
+
+# Reserva duplicada.
+# Ejecutala despues de la reserva valida. Debe devolver 400 Bad Request.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservar
+Content-Type: application/json
+
+{
+  "nombre": "Maria",
+  "apellido": "Duplicada",
+  "telefonoCliente": "+5492615555557",
+  "fechaHoraInicio": "{{FechaHoraReserva}}",
+  "tipoTurno": 1
+}
 
 ###

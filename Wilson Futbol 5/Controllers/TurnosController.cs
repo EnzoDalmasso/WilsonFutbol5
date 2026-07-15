@@ -31,4 +31,33 @@ public class TurnosController : ControllerBase
         // Devolvemos 200 OK con la lista de horarios disponibles y bloqueados.
         return Ok(turnosDisponibles);
     }
+
+    // Endpoint para crear una reserva.
+    // Ejemplo de uso:
+    // POST /api/turnos/reservar
+    [HttpPost("reservar")]
+    public async Task<ActionResult<TurnoReservadoDto>> ReservarTurno([FromBody] ReservarTurnoDto dto)
+    {
+        try
+        {
+            // Delegamos la logica de negocio al servicio.
+            // El controller solo recibe la peticion HTTP y devuelve una respuesta.
+            var turnoReservado = await _servicioTurnos.ReservarTurnoAsync(dto);
+
+            // Devolvemos 201 Created porque se creo un recurso nuevo: el turno.
+            return CreatedAtAction(
+                nameof(ObtenerDisponibilidad),
+                new { fecha = DateOnly.FromDateTime(turnoReservado.FechaHoraInicio) },
+                turnoReservado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Si el servicio detecta una regla de negocio invalida,
+            // devolvemos 400 Bad Request con el mensaje.
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
 }
