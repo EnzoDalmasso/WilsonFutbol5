@@ -3,8 +3,8 @@ using Wilson_Futbol_5.Dominio.Enums;
 namespace Wilson_Futbol_5.Dominio.Entidades;
 
 
-/// Registra una multa o penalizacion cuando un cliente no asiste y no cancela a tiempo.
-/// El monto queda definido por la configuracion vigente que maneje el dueno.
+// Registra una multa o penalizacion cuando un cliente no asiste y no cancela a tiempo.
+// El monto queda definido por la configuracion vigente que maneje el dueno.
 
 public class Penalizacion
 {

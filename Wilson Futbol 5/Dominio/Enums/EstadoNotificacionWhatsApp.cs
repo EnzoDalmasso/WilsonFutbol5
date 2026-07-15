@@ -1,7 +1,7 @@
 namespace Wilson_Futbol_5.Dominio.Enums;
 
 
-/// Permite controlar los intentos de envio y detectar mensajes pendientes o fallidos.
+// Permite controlar los intentos de envio y detectar mensajes pendientes o fallidos.
 
 public enum EstadoNotificacionWhatsApp
 {

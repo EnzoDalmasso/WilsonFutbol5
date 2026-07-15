@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Wilson_Futbol_5.Infraestructura.Persistencia;
 
@@ -11,9 +12,11 @@ using Wilson_Futbol_5.Infraestructura.Persistencia;
 namespace Wilson_Futbol_5.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(WilsonDbContext))]
-    partial class WilsonDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715105735_AgregarHorariosAtencionIniciales")]
+    partial class AgregarHorariosAtencionIniciales
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

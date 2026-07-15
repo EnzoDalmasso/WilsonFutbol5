@@ -1,7 +1,7 @@
 namespace Wilson_Futbol_5.Dominio.Entidades;
 
-/// Centraliza los valores modificables por el dueno, como precios, duraciones y reglas
-/// de cancelacion. Esto evita dejar reglas de negocio escritas de forma fija en el codigo.
+// Centraliza los valores modificables por el dueno, como precios, duraciones y reglas
+// de cancelacion. Esto evita dejar reglas de negocio escritas de forma fija en el codigo.
 
 public class ConfiguracionNegocio
 {

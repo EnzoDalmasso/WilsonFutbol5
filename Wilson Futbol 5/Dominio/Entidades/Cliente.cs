@@ -1,7 +1,7 @@
 namespace Wilson_Futbol_5.Dominio.Entidades;
 
-/// Guarda los datos minimos del cliente que reserva un turno, incluyendo el telefono
-/// normalizado para poder enviar confirmaciones y recordatorios por WhatsApp.
+// Guarda los datos minimos del cliente que reserva un turno, incluyendo el telefono
+// normalizado para poder enviar confirmaciones y recordatorios por WhatsApp.
 public class Cliente
 {
     public int Id { get; set; }

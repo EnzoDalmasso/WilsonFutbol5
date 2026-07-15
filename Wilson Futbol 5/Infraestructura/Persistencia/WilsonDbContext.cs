@@ -5,8 +5,8 @@ using Wilson_Futbol_5.Dominio.Entidades;
 namespace Wilson_Futbol_5.Infraestructura.Persistencia;
 
 
-/// Punto de entrada de EF Core hacia SQL Server. Aca se declaran las tablas y las reglas
-/// de mapeo para que el modelo de dominio se guarde de forma consistente.
+// Punto de entrada de EF Core hacia SQL Server. Aca se declaran las tablas y las reglas
+// de mapeo para que el modelo de dominio se guarde de forma consistente.
 
 public class WilsonDbContext : DbContext
 {
@@ -122,6 +122,74 @@ public class WilsonDbContext : DbContext
             .WithMany(cancha => cancha.HorariosAtencion)
             .HasForeignKey(horario => horario.CanchaId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Cargamos horarios iniciales para poder probar la disponibilidad.
+        // Por ahora usamos el mismo horario todos los dias: 18:00 a 23:00.
+        // Mas adelante el dueno va a poder modificar estos horarios desde su panel.
+        entidad.HasData(
+            new HorarioAtencion
+            {
+                Id = 1,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Monday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 2,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Tuesday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 3,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Wednesday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 4,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Thursday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 5,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Friday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 6,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Saturday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            },
+            new HorarioAtencion
+            {
+                Id = 7,
+                CanchaId = 1,
+                DiaSemana = DayOfWeek.Sunday,
+                HoraApertura = new TimeOnly(18, 0),
+                HoraCierre = new TimeOnly(23, 0),
+                Activo = true
+            });
     }
 
     private static void ConfigurarConfiguracionNegocio(EntityTypeBuilder<ConfiguracionNegocio> entidad)

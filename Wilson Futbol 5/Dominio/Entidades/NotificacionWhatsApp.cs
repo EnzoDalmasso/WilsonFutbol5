@@ -2,8 +2,8 @@ using Wilson_Futbol_5.Dominio.Enums;
 
 namespace Wilson_Futbol_5.Dominio.Entidades;
 
-/// Guarda los mensajes que el sistema debe enviar por WhatsApp. La reserva solo crea
-/// la notificacion; otro servicio se encarga del envio para mantener bajo acoplamiento.
+// Guarda los mensajes que el sistema debe enviar por WhatsApp. La reserva solo crea
+// la notificacion; otro servicio se encarga del envio para mantener bajo acoplamiento.
 
 public class NotificacionWhatsApp
 {

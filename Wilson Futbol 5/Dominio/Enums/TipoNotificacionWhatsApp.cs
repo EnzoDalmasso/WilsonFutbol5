@@ -1,7 +1,7 @@
 namespace Wilson_Futbol_5.Dominio.Enums;
 
 
-/// Clasifica el motivo por el cual el sistema debe enviar un mensaje de WhatsApp.
+// Clasifica el motivo por el cual el sistema debe enviar un mensaje de WhatsApp.
 
 public enum TipoNotificacionWhatsApp
 {

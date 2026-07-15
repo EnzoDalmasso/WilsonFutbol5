@@ -1,5 +1,7 @@
 
 using Microsoft.EntityFrameworkCore;
+using Wilson_Futbol_5.Aplicacion.Interfaces;
+using Wilson_Futbol_5.Aplicacion.Servicios;
 using Wilson_Futbol_5.Infraestructura.Persistencia;
 
 namespace Wilson_Futbol_5
@@ -13,6 +15,9 @@ namespace Wilson_Futbol_5
             // Add services to the container.
 
             builder.Services.AddControllers();
+
+            builder.Services.AddScoped<IServicioTurnos, ServicioTurnos>();
+
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 

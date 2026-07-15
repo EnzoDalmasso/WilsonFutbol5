@@ -3,8 +3,8 @@ using Wilson_Futbol_5.Dominio.Enums;
 namespace Wilson_Futbol_5.Dominio.Entidades;
 
 
-/// Representa una reserva concreta de la cancha, con cliente, horario, precio congelado
-/// al momento de reservar y estado operativo.
+// Representa una reserva concreta de la cancha, con cliente, horario, precio congelado
+// al momento de reservar y estado operativo.
 
 public class Turno
 {
