@@ -60,4 +60,29 @@ public class TurnosController : ControllerBase
             });
         }
     }
+
+    // Endpoint para cancelar una reserva usando el token de cancelacion.
+    // Ejemplo de uso:
+    // POST /api/turnos/cancelar/d70a96a58f5a4d1481d2622d687e9658
+    [HttpPost("cancelar/{tokenCancelacion}")]
+    public async Task<ActionResult<TurnoCanceladoDto>> CancelarTurno(string tokenCancelacion)
+    {
+        try
+        {
+            // Delegamos la regla de cancelacion al servicio.
+            // El controller solo traduce la peticion HTTP a una respuesta.
+            var turnoCancelado = await _servicioTurnos.CancelarTurnoAsync(tokenCancelacion);
+
+            return Ok(turnoCancelado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Si el token no existe, ya esta cancelado o esta fuera del limite permitido,
+            // devolvemos 400 con un mensaje entendible.
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
 }

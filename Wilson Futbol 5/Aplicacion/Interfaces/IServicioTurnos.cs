@@ -11,4 +11,6 @@ public interface IServicioTurnos
     Task<IReadOnlyList<TurnoDisponibleDto>> ObtenerDisponibilidadPorFechaAsync(DateOnly fecha);
 
     Task<TurnoReservadoDto> ReservarTurnoAsync(ReservarTurnoDto dto);
+
+    Task<TurnoCanceladoDto> CancelarTurnoAsync(string tokenCancelacion);
 }

@@ -255,4 +255,70 @@ public class ServicioTurnos : IServicioTurnos
             TokenCancelacion = turno.TokenCancelacion
         };
     }
+
+    public async Task<TurnoCanceladoDto> CancelarTurnoAsync(string tokenCancelacion)
+    {
+        // Validamos que el token venga informado.
+        // Sin token no podemos identificar que turno quiere cancelar el cliente.
+        if (string.IsNullOrWhiteSpace(tokenCancelacion))
+        {
+            throw new InvalidOperationException("El token de cancelacion es obligatorio.");
+        }
+
+        // Buscamos el turno por token.
+        // Solo incluimos turnos reservados, porque un turno ya cancelado no deberia cancelarse otra vez.
+        var turno = await _contexto.Turnos
+            .FirstOrDefaultAsync(turno =>
+                turno.TokenCancelacion == tokenCancelacion &&
+                turno.EstadoTurno == EstadoTurno.Reservado);
+
+        if (turno is null)
+        {
+            throw new InvalidOperationException("No se encontro un turno reservado con el token indicado.");
+        }
+
+        // Buscamos la configuracion para saber cuantas horas antes se permite cancelar sin penalizacion.
+        var configuracion = await _contexto.ConfiguracionesNegocio
+            .FirstAsync();
+
+        var fechaActual = DateTime.Now;
+        var limiteCancelacion = turno.FechaHoraInicio.AddHours(-configuracion.HorasAnticipacionCancelacion);
+
+        // Si ya estamos dentro de las ultimas 2 horas antes del partido, no permitimos cancelar.
+        // Mas adelante, desde el panel del dueno, se podra marcar como inasistencia y generar penalizacion.
+        if (fechaActual > limiteCancelacion)
+        {
+            throw new InvalidOperationException("El turno ya no puede cancelarse porque esta dentro del limite de cancelacion.");
+        }
+
+        // Marcamos el turno como cancelado por el cliente.
+        // No borramos el turno porque necesitamos conservar historial.
+        turno.EstadoTurno = EstadoTurno.CanceladoPorCliente;
+        turno.FechaCancelacion = fechaActual;
+        turno.MotivoCancelacion = "Cancelado por el cliente.";
+
+        // Cancelamos las notificaciones pendientes de WhatsApp asociadas al turno.
+        // Por ejemplo, si habia un recordatorio programado, ya no deberia enviarse.
+        var notificacionesPendientes = await _contexto.NotificacionesWhatsApp
+            .Where(notificacion =>
+                notificacion.TurnoId == turno.Id &&
+                notificacion.EstadoNotificacion == EstadoNotificacionWhatsApp.Pendiente)
+            .ToListAsync();
+
+        foreach (var notificacion in notificacionesPendientes)
+        {
+            notificacion.EstadoNotificacion = EstadoNotificacionWhatsApp.Cancelada;
+        }
+
+        await _contexto.SaveChangesAsync();
+
+        return new TurnoCanceladoDto
+        {
+            TurnoId = turno.Id,
+            FechaHoraInicio = turno.FechaHoraInicio,
+            FechaCancelacion = fechaActual,
+            EstadoTurno = turno.EstadoTurno.ToString(),
+            Mensaje = "Turno cancelado correctamente. El horario vuelve a estar disponible."
+        };
+    }
 }

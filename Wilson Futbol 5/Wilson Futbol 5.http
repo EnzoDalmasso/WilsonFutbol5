@@ -1,6 +1,7 @@
 @Wilson_Futbol_5_HostAddress = http://localhost:5032
 @FechaPrueba = 2026-07-18
 @FechaHoraReserva = 2026-07-18T19:00:00
+@TokenCancelacion = pegar-token-aca
 
 # Consulta disponibilidad de una fecha.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}
@@ -66,5 +67,20 @@ Content-Type: application/json
   "fechaHoraInicio": "{{FechaHoraReserva}}",
   "tipoTurno": 1
 }
+
+###
+
+# Cancelar reserva.
+# Primero ejecuta "Reserva valida", copia el valor de tokenCancelacion de la respuesta
+# y pegalo en la variable @TokenCancelacion de arriba.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/cancelar/{{TokenCancelacion}}
+Accept: application/json
+
+###
+
+# Consulta disponibilidad despues de cancelar.
+# El horario que cancelaste deberia volver a aparecer con disponible: true.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}
+Accept: application/json
 
 ###
