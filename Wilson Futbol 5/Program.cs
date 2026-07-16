@@ -18,6 +18,18 @@ namespace Wilson_Futbol_5
 
             builder.Services.AddScoped<IServicioTurnos, ServicioTurnos>();
 
+            // Permitimos que el frontend local de Vite pueda llamar a la API durante el desarrollo.
+            builder.Services.AddCors(opciones =>
+            {
+                opciones.AddPolicy("FrontendLocal", politica =>
+                {
+                    politica
+                        .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
+
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
@@ -37,6 +49,8 @@ namespace Wilson_Futbol_5
             }
 
             app.UseHttpsRedirection();
+
+            app.UseCors("FrontendLocal");
 
             app.UseAuthorization();
 

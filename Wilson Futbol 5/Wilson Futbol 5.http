@@ -1,7 +1,7 @@
 @Wilson_Futbol_5_HostAddress = http://localhost:5032
 @FechaPrueba = 2026-07-18
 @FechaHoraReserva = 2026-07-18T19:00:00
-@TokenCancelacion = pegar-token-aca
+@TokenCancelacion = ff23dbc5604c451f919a282b9d029ef6
 
 # Consulta disponibilidad de una fecha.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}

@@ -103,6 +103,7 @@ public class ServicioTurnos : IServicioTurnos
                 FechaHoraInicio = fechaHoraInicio,
                 FechaHoraFin = fechaHoraFin,
                 Disponible = !estaOcupado,
+                PrecioPorPersona = configuracion.PrecioPorPersona,
                 PrecioTotal = precioTotal
             });
 

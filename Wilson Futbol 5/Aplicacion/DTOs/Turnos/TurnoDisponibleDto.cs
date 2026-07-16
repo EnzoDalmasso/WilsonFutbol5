@@ -10,5 +10,7 @@ public class TurnoDisponibleDto
 
     public bool Disponible { get; set; }
 
+    public decimal PrecioPorPersona { get; set; }
+
     public decimal PrecioTotal { get; set; }
 }
