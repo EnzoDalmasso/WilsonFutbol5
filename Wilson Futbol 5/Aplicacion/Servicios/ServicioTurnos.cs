@@ -50,7 +50,7 @@ public class ServicioTurnos : IServicioTurnos
 
     public async Task<IReadOnlyList<ReservaEspecialDto>> ObtenerReservasEspecialesAsync()
     {
-        var fechaActual = DateTime.Now.Date;
+        var fechaActual = RelojNegocio.AhoraArgentina().Date;
 
         // Las reservas especiales se guardan como turnos de tipo Cumpleanios.
         // Filtramos desde hoy para que el panel muestre lo que todavia sirve operar.
@@ -155,7 +155,7 @@ public class ServicioTurnos : IServicioTurnos
         var inicioDia = fecha.ToDateTime(TimeOnly.MinValue);
         var finDia = fecha.ToDateTime(TimeOnly.MaxValue);
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
 
         // Traemos los turnos que bloquean disponibilidad.
         // Un turno reservado bloquea siempre.
@@ -302,7 +302,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("La fecha y hora de inicio es obligatoria.");
         }
 
-        if (dto.FechaHoraInicio <= DateTime.Now)
+        if (dto.FechaHoraInicio <= RelojNegocio.AhoraArgentina())
         {
             throw new InvalidOperationException("No se puede reservar un turno en una fecha pasada.");
         }
@@ -346,7 +346,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("El turno solicitado esta fuera del horario de atencion.");
         }
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
 
         // Buscamos si ya existe un turno que bloquee el horario solicitado.
         // Un turno reservado bloquea siempre.
@@ -426,7 +426,7 @@ public class ServicioTurnos : IServicioTurnos
             TelefonoDestino = cliente.TelefonoCliente,
             TipoNotificacion = TipoNotificacionWhatsApp.ConfirmacionCliente,
             Mensaje = $"Turno confirmado para el {turno.FechaHoraInicio:dd/MM/yyyy HH:mm}.",
-            FechaProgramada = DateTime.UtcNow
+            FechaProgramada = RelojNegocio.AhoraArgentina()
         });
 
         turno.NotificacionesWhatsApp.Add(new NotificacionWhatsApp
@@ -486,7 +486,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("Solo se pueden rechazar turnos pendientes de aprobacion.");
         }
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
 
         // Marcamos el turno como cancelado por el dueno.
         // No borramos el registro porque necesitamos conservar historial.
@@ -545,7 +545,7 @@ public class ServicioTurnos : IServicioTurnos
         var configuracion = await _contexto.ConfiguracionesNegocio
             .FirstAsync();
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
         var limiteCancelacion = turno.FechaHoraInicio.AddHours(-configuracion.HorasAnticipacionCancelacion);
 
         // Si el turno ya estaba confirmado, aplicamos la regla de cancelacion anticipada.
@@ -610,7 +610,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("La fecha y hora de inicio y fin son obligatorias.");
         }
 
-        if (dto.FechaHoraInicio <= DateTime.Now)
+        if (dto.FechaHoraInicio <= RelojNegocio.AhoraArgentina())
         {
             throw new InvalidOperationException("No se puede crear una reserva especial en una fecha pasada.");
         }
@@ -698,7 +698,7 @@ public class ServicioTurnos : IServicioTurnos
             PrecioTotal = precioTotal,
             MontoSena = configuracion.MontoSena,
             FechaVencimientoReserva = null,
-            FechaConfirmacion = DateTime.Now,
+            FechaConfirmacion = RelojNegocio.AhoraArgentina(),
             MotivoCancelacion = dto.Observacion?.Trim()
         };
 
@@ -752,7 +752,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("La reserva especial ya no esta activa.");
         }
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
 
         // No borramos el turno: lo marcamos cancelado para liberar el horario y conservar historial.
         turno.EstadoTurno = EstadoTurno.CanceladoPorDueno;
@@ -809,7 +809,7 @@ public class ServicioTurnos : IServicioTurnos
             throw new InvalidOperationException("Solo se pueden confirmar turnos pendientes de aprobacion.");
         }
 
-        var fechaActual = DateTime.Now;
+        var fechaActual = RelojNegocio.AhoraArgentina();
 
         // Confirmamos la reserva cuando el dueno decide aprobar el turno.
         turno.EstadoTurno = EstadoTurno.Reservado;

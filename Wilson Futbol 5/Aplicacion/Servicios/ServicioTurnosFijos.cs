@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Wilson_Futbol_5.Aplicacion.DTOs.TurnosFijos;
 using Wilson_Futbol_5.Aplicacion.Interfaces;
 using Wilson_Futbol_5.Dominio.Entidades;
@@ -185,7 +185,7 @@ public class ServicioTurnosFijos : IServicioTurnosFijos
         // Al quedar inactivo, deja de bloquear la disponibilidad.
         turnoFijo.Activo = false;
 
-        var fechaHoy = DateOnly.FromDateTime(DateTime.Now);
+        var fechaHoy = DateOnly.FromDateTime(RelojNegocio.AhoraArgentina());
 
         if (turnoFijo.FechaHasta is null || turnoFijo.FechaHasta > fechaHoy)
         {
