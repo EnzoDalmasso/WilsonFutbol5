@@ -1486,10 +1486,10 @@ function App() {
         <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div>
             <p className="text-sm font-bold uppercase text-[#d6a72b]">
-              Panel del dueÃ±o
+              Panel del dueño
             </p>
             <h2 className="text-2xl font-black text-[#0b2f63]">
-              CumpleaÃ±os y reservas especiales
+              Cumpleaños y reservas especiales
             </h2>
           </div>
 
@@ -1536,7 +1536,7 @@ function App() {
 
               <div>
                 <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialTelefono">
-                  TelÃ©fono
+                  Teléfono
                 </label>
                 <input
                   className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
@@ -1608,7 +1608,7 @@ function App() {
 
             <div className="mt-3">
               <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialObservacion">
-                ObservaciÃ³n
+                Observación
               </label>
               <textarea
                 className="mt-1 min-h-20 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
@@ -1616,7 +1616,7 @@ function App() {
                 maxLength={250}
                 name="observacion"
                 onChange={cambiarDatoReservaEspecial}
-                placeholder="CumpleaÃ±os, evento familiar, pago en efectivo..."
+                placeholder="Cumpleaños, evento familiar, pago en efectivo..."
                 value={datosReservaEspecial.observacion}
               />
             </div>
