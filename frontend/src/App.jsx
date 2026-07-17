@@ -128,6 +128,31 @@ function formatearPrecio(valor) {
   }).format(valor)
 }
 
+function obtenerTelefonoWhatsApp(telefono) {
+  const numeros = telefono.replace(/\D/g, '')
+
+  if (!numeros) {
+    return ''
+  }
+
+  if (numeros.startsWith('54')) {
+    return numeros
+  }
+
+  // Si el cliente carga un numero local sin codigo de pais, asumimos Argentina.
+  return `549${numeros}`
+}
+
+function crearLinkWhatsApp(telefono, mensaje) {
+  const telefonoWhatsApp = obtenerTelefonoWhatsApp(telefono)
+
+  if (!telefonoWhatsApp) {
+    return ''
+  }
+
+  return `https://wa.me/${telefonoWhatsApp}?text=${encodeURIComponent(mensaje)}`
+}
+
 async function obtenerMensajeError(respuesta) {
   try {
     const datos = await respuesta.json()
@@ -411,6 +436,49 @@ function App() {
       turnoId,
       `/turnos/rechazar-pendiente/${turnoId}`,
       'Reserva pendiente rechazada correctamente.',
+    )
+  }
+
+  function crearMensajeWhatsAppPendiente(turno, tipoMensaje) {
+    const fecha = formatearFecha(turno.fechaHoraInicio)
+    const horaInicio = formatearHora(turno.fechaHoraInicio)
+    const horaFin = formatearHora(turno.fechaHoraFin)
+    const montoSena = formatearPrecio(turno.montoSena)
+    const precioTotal = formatearPrecio(turno.precioTotal)
+    const alias = configuracionNegocio?.aliasTransferencia
+    const titular = configuracionNegocio?.nombreTitularTransferencia
+    const datosTransferencia = [
+      alias ? `Alias: ${alias}` : '',
+      titular ? `Titular: ${titular}` : '',
+    ].filter(Boolean)
+
+    if (tipoMensaje === 'sena') {
+      return [
+        `Hola ${turno.nombreCliente}, te escribimos de Wilson Futbol 5 por tu reserva del ${fecha} de ${horaInicio} a ${horaFin}.`,
+        `Para dejarla pendiente de confirmacion, podes enviar una seña de ${montoSena}.`,
+        datosTransferencia.length > 0 ? datosTransferencia.join(' - ') : '',
+        'Cuando hagas la transferencia, mandanos el comprobante por este chat.',
+      ].filter(Boolean).join('\n')
+    }
+
+    if (tipoMensaje === 'confirmacion') {
+      return [
+        `Hola ${turno.nombreCliente}, tu turno en Wilson Futbol 5 queda confirmado para el ${fecha} de ${horaInicio} a ${horaFin}.`,
+        `Total de la cancha: ${precioTotal}.`,
+        'Te esperamos.',
+      ].join('\n')
+    }
+
+    return [
+      `Hola ${turno.nombreCliente}, te escribimos de Wilson Futbol 5 por tu solicitud del ${fecha} de ${horaInicio} a ${horaFin}.`,
+      'No se pudo confirmar el turno, lo sentimos. Wilson Futbol 5',
+    ].join('\n')
+  }
+
+  function crearLinkWhatsAppPendiente(turno, tipoMensaje) {
+    return crearLinkWhatsApp(
+      turno.telefonoCliente,
+      crearMensajeWhatsAppPendiente(turno, tipoMensaje),
     )
   }
 
@@ -972,7 +1040,7 @@ function App() {
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
                 <p className="text-sm font-semibold text-white/70">
                   Los administradores pueden acceder al panel del dueño.
                 </p>
@@ -989,12 +1057,12 @@ function App() {
 
                 {mostrarAccesoDueno && (
                   <form
-                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start"
+                    className="grid w-full gap-2 sm:w-auto sm:grid-cols-[220px_auto] sm:items-start"
                     onSubmit={ingresarModoDueno}
                   >
-                    <div>
+                    <div className="min-w-0">
                       <input
-                        className="w-full rounded-xl border border-white/15 bg-white px-3 py-2 text-sm font-semibold text-[#061934] outline-none focus:border-[#d6a72b] sm:w-44"
+                        className="w-full rounded-xl border border-white/15 bg-white px-3 py-2 text-sm font-semibold text-[#061934] outline-none focus:border-[#d6a72b]"
                         onChange={(evento) => setClaveDueno(evento.target.value)}
                         placeholder="Contraseña dueño"
                         type="password"
@@ -1013,7 +1081,7 @@ function App() {
                     </div>
 
                     <button
-                      className="rounded-xl bg-[#d6a72b] px-4 py-2 text-sm font-black text-[#061934] transition hover:bg-[#edc455] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-10 rounded-xl bg-[#d6a72b] px-5 text-sm font-black text-[#061934] transition hover:bg-[#edc455] disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={ingresandoDueno}
                       type="submit"
                     >
@@ -1577,6 +1645,38 @@ function App() {
                       <dd>{formatearPrecio(turno.precioTotal)}</dd>
                     </div>
                   </dl>
+
+                  <div className="mt-4 rounded-xl border border-[#d6dce5] bg-white p-3">
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      WhatsApp manual
+                    </p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <a
+                        className="rounded-xl border border-[#1e6b35] bg-[#f0fff4] px-3 py-2 text-center text-sm font-black text-[#1e6b35] transition hover:bg-[#d7f8df]"
+                        href={crearLinkWhatsAppPendiente(turno, 'sena')}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Pedir seña
+                      </a>
+                      <a
+                        className="rounded-xl border border-[#0b2f63] bg-[#edf3ff] px-3 py-2 text-center text-sm font-black text-[#0b2f63] transition hover:bg-[#dbe8ff]"
+                        href={crearLinkWhatsAppPendiente(turno, 'confirmacion')}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Avisar confirmado
+                      </a>
+                      <a
+                        className="rounded-xl border border-[#9a3d2d] bg-[#fff5f2] px-3 py-2 text-center text-sm font-black text-[#9a3d2d] transition hover:bg-[#ffe6df]"
+                        href={crearLinkWhatsAppPendiente(turno, 'rechazo')}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Avisar rechazo
+                      </a>
+                    </div>
+                  </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <button
