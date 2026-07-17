@@ -17,6 +17,10 @@ namespace Wilson_Futbol_5
             builder.Services.AddControllers();
 
             builder.Services.AddScoped<IServicioTurnos, ServicioTurnos>();
+            builder.Services.AddScoped<IServicioTurnosFijos, ServicioTurnosFijos>();
+            builder.Services.AddScoped<IServicioExcepcionesHorario, ServicioExcepcionesHorario>();
+            builder.Services.AddScoped<IServicioHorariosAtencion, ServicioHorariosAtencion>();
+            builder.Services.AddScoped<IServicioConfiguracionNegocio, ServicioConfiguracionNegocio>();
 
             // Permitimos que el frontend local de Vite pueda llamar a la API durante el desarrollo.
             builder.Services.AddCors(opciones =>

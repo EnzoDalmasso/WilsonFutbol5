@@ -9,5 +9,7 @@ public enum EstadoTurno
     CanceladoPorCliente = 2,
     CanceladoPorDueno = 3,
     Finalizado = 4,
-    Inasistencia = 5
+    Inasistencia = 5,
+    EnEsperaDePago = 6,
+    Vencido = 7
 }

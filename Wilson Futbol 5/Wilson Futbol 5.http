@@ -1,7 +1,12 @@
 @Wilson_Futbol_5_HostAddress = http://localhost:5032
-@FechaPrueba = 2026-07-18
-@FechaHoraReserva = 2026-07-18T19:00:00
-@TokenCancelacion = ff23dbc5604c451f919a282b9d029ef6
+@FechaPrueba = 2026-08-04
+@FechaHoraReserva = 2026-08-04T18:00:00
+@TurnoIdReservado = 1015
+@TokenCancelacion = d00dbde5793141e1b0e2371b6cd984ca
+@TurnoFijoId = 1
+@ExcepcionHorarioId = 2
+@HorarioAtencionId = 4
+@AdminKey = wilson2026
 
 # Consulta disponibilidad de una fecha.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}
@@ -9,6 +14,23 @@ Accept: application/json
 
 ###
 
+# Confirmar reserva pendiente de aprobacion.
+# Primero ejecuta "Reserva valida", copia el valor de turnoId de la respuesta
+# y pegalo en la variable @TurnoIdReservado de arriba.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/confirmar/{{TurnoIdReservado}}
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Confirmar reserva ya confirmada.
+# Ejecutala despues de confirmar correctamente el turno.
+# Debe devolver 400 Bad Request porque el turno ya esta reservado.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/confirmar/{{TurnoIdReservado}}
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
 # Reserva valida.
 # Si la ejecutas mas de una vez con la misma fecha y hora, la segunda vez debe fallar
 # porque el horario ya queda reservado.
@@ -84,3 +106,218 @@ GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueb
 Accept: application/json
 
 ###
+
+# Consultar reservas pendientes de confirmacion.
+# Esta consulta simula lo que va a ver el dueno en su panel.
+# Devuelve los turnos en espera de sena, con turnoId, cliente, telefono, monto y vencimiento.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/pendientes-confirmacion
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Rechazar reserva pendiente de aprobacion.
+# Primero ejecuta "Reserva valida", copia el valor de turnoId de la respuesta
+# y pegalo en la variable @TurnoIdReservado de arriba.
+# Debe cambiar el turno a CanceladoPorDueno y liberar el horario.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/rechazar-pendiente/{{TurnoIdReservado}}
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Crear turno fijo semanal.
+# DiaSemana usa los valores de DayOfWeek:
+# Sunday = 0, Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5, Saturday = 6.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "nombre": "Enzo",
+  "apellido": "Dalmasso",
+  "telefonoCliente": "+5492610000001",
+  "diaSemana": 2,
+  "horaInicio": "20:00:00",
+  "horaFin": "21:00:00",
+  "fechaDesde": "2026-07-01",
+  "fechaHasta": null,
+  "observacion": "Turno fijo creado desde HTTP"
+}
+
+###
+
+# Listar turnos fijos.
+# Devuelve todos los turnos fijos cargados con cliente, dia, horario y estado.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Desactivar turno fijo.
+# Primero ejecuta "Listar turnos fijos", copia el valor de turnoFijoId
+# y pegalo en la variable @TurnoFijoId de arriba.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos/{{TurnoFijoId}}/desactivar
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Listar excepciones de horario.
+# Muestra feriados, vacaciones y dias especiales cargados.
+GET {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Crear excepcion: dia cerrado.
+# Ese dia no deberia devolver horarios disponibles.
+POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "fechaDesde": "2026-08-10",
+  "fechaHasta": "2026-08-10",
+  "abierto": false,
+  "horaApertura": null,
+  "horaCierre": null,
+  "motivo": "Feriado cerrado"
+}
+
+###
+
+# Crear excepcion: dia abierto con horario especial.
+# Ese dia deberia usar este horario en vez del horario semanal normal.
+POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "fechaDesde": "2026-08-11",
+  "fechaHasta": "2026-08-11",
+  "abierto": true,
+  "horaApertura": "19:00:00",
+  "horaCierre": "22:00:00",
+  "motivo": "Feriado abierto con horario especial"
+}
+
+###
+
+# Probar disponibilidad de dia cerrado por excepcion.
+# Deberia devolver [].
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha=2026-08-10
+Accept: application/json
+
+###
+
+# Probar disponibilidad de dia con horario especial.
+# Deberia devolver horarios de 19 a 22.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha=2026-08-11
+Accept: application/json
+
+###
+
+# Eliminar excepcion de horario.
+# Primero ejecuta "Listar excepciones de horario", copia el valor de excepcionHorarioId
+# y pegalo en la variable @ExcepcionHorarioId de arriba.
+# Al eliminarla, esa fecha vuelve a usar el horario normal semanal.
+DELETE {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario/{{ExcepcionHorarioId}}
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+
+###
+
+# Crear excepcion: vacaciones cerrado por rango.
+# Todo ese rango deberia devolver [] en disponibilidad.
+POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "fechaDesde": "2026-08-20",
+  "fechaHasta": "2026-08-25",
+  "abierto": false,
+  "horaApertura": null,
+  "horaCierre": null,
+  "motivo": "Vacaciones"
+}
+
+###
+
+# Probar disponibilidad dentro del rango de vacaciones.
+# Deberia devolver [].
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha=2026-08-22
+Accept: application/json
+
+###
+
+# Probar disponibilidad fuera del rango de vacaciones.
+# Deberia volver a usar el horario normal semanal.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha=2026-08-26
+Accept: application/json
+
+###
+
+# Listar horarios de atencion.
+# Devuelve la configuracion semanal que usa la disponibilidad.
+GET {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Actualizar horario de atencion.
+# Primero ejecuta "Listar horarios de atencion", copia el valor de horarioAtencionId
+# y pegalo en la variable @HorarioAtencionId de arriba.
+PUT {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion/{{HorarioAtencionId}}
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "activo": true,
+  "horaApertura": "17:00:00",
+  "horaCierre": "23:00:00"
+}
+
+###
+
+# Cerrar un dia de la semana.
+# Usa el @HorarioAtencionId del dia que quieras cerrar.
+PUT {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion/{{HorarioAtencionId}}
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "activo": false,
+  "horaApertura": "18:00:00",
+  "horaCierre": "23:00:00"
+}
+
+###
+
+# Obtener configuracion del negocio.
+# Devuelve precios, seña y datos de transferencia.
+GET {{Wilson_Futbol_5_HostAddress}}/api/configuracion-negocio
+Accept: application/json
+X-Admin-Key: {{AdminKey}}
+
+###
+
+# Actualizar configuracion del negocio.
+# Cambia precio por persona, cantidad de jugadores, seña y datos de transferencia.
+PUT {{Wilson_Futbol_5_HostAddress}}/api/configuracion-negocio
+Content-Type: application/json
+X-Admin-Key: {{AdminKey}}
+
+{
+  "precioPorPersona": 6000,
+  "cantidadJugadoresPorTurno": 10,
+  "montoSena": 30000,
+  "aliasTransferencia": "wilson.futbol5",
+  "nombreTitularTransferencia": "Wilson Futbol 5",
+  "mensajePagoReserva": "Para confirmar la reserva, transferi la seña y envia el comprobante al dueño."
+}

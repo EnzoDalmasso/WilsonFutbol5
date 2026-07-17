@@ -16,5 +16,7 @@ public class Cliente
 
     public ICollection<Turno> Turnos { get; set; } = new List<Turno>();
 
+    public ICollection<TurnoFijo> TurnosFijos { get; set; } = new List<TurnoFijo>();
+
     public ICollection<Penalizacion> Penalizaciones { get; set; } = new List<Penalizacion>();
 }

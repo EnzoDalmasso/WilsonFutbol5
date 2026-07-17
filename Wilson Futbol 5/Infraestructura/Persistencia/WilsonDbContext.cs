@@ -15,11 +15,15 @@ public class WilsonDbContext : DbContext
     {
     }
 
+    public DbSet<ExcepcionHorario> ExcepcionesHorario => Set<ExcepcionHorario>();
+
     public DbSet<Cancha> Canchas => Set<Cancha>();
 
     public DbSet<Cliente> Clientes => Set<Cliente>();
 
     public DbSet<Turno> Turnos => Set<Turno>();
+
+    public DbSet<TurnoFijo> TurnosFijos => Set<TurnoFijo>();
 
     public DbSet<HorarioAtencion> HorariosAtencion => Set<HorarioAtencion>();
 
@@ -36,11 +40,36 @@ public class WilsonDbContext : DbContext
         ConfigurarCancha(modelBuilder.Entity<Cancha>());
         ConfigurarCliente(modelBuilder.Entity<Cliente>());
         ConfigurarTurno(modelBuilder.Entity<Turno>());
+        ConfigurarTurnoFijo(modelBuilder.Entity<TurnoFijo>());
         ConfigurarHorarioAtencion(modelBuilder.Entity<HorarioAtencion>());
         ConfigurarConfiguracionNegocio(modelBuilder.Entity<ConfiguracionNegocio>());
         ConfigurarPenalizacion(modelBuilder.Entity<Penalizacion>());
         ConfigurarNotificacionWhatsApp(modelBuilder.Entity<NotificacionWhatsApp>());
+
+        modelBuilder.Entity<ExcepcionHorario>(entidad =>
+        {
+            entidad.ToTable("ExcepcionesHorario");
+
+            entidad.HasKey(excepcionHorario => excepcionHorario.Id);
+
+            entidad.Property(excepcionHorario => excepcionHorario.Motivo)
+                .HasMaxLength(200);
+
+            entidad.HasOne(excepcionHorario => excepcionHorario.Cancha)
+                .WithMany()
+                .HasForeignKey(excepcionHorario => excepcionHorario.CanchaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entidad.HasIndex(excepcionHorario => new
+            {
+                excepcionHorario.CanchaId,
+                excepcionHorario.FechaDesde,
+                excepcionHorario.FechaHasta
+            })
+            .IsUnique();
+        });
     }
+
 
     private static void ConfigurarCancha(EntityTypeBuilder<Cancha> entidad)
     {
@@ -88,6 +117,9 @@ public class WilsonDbContext : DbContext
         entidad.Property(turno => turno.PrecioTotal)
             .HasPrecision(18, 2);
 
+        entidad.Property(turno => turno.MontoSena)
+            .HasPrecision(18, 2);
+
         entidad.Property(turno => turno.MotivoCancelacion)
             .HasMaxLength(300);
 
@@ -110,6 +142,35 @@ public class WilsonDbContext : DbContext
             .HasForeignKey(turno => turno.ClienteId)
             .OnDelete(DeleteBehavior.Restrict);
     }
+
+    private static void ConfigurarTurnoFijo(EntityTypeBuilder<TurnoFijo> entidad)
+    {
+        entidad.ToTable("TurnosFijos");
+        entidad.HasKey(turnoFijo => turnoFijo.Id);
+
+        entidad.Property(turnoFijo => turnoFijo.Observacion)
+            .HasMaxLength(300);
+
+        entidad.HasIndex(turnoFijo => new
+        {
+            turnoFijo.CanchaId,
+            turnoFijo.DiaSemana,
+            turnoFijo.HoraInicio,
+            turnoFijo.HoraFin,
+            turnoFijo.Activo
+        });
+
+        entidad.HasOne(turnoFijo => turnoFijo.Cancha)
+            .WithMany(cancha => cancha.TurnosFijos)
+            .HasForeignKey(turnoFijo => turnoFijo.CanchaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        entidad.HasOne(turnoFijo => turnoFijo.Cliente)
+            .WithMany(cliente => cliente.TurnosFijos)
+            .HasForeignKey(turnoFijo => turnoFijo.ClienteId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
 
     private static void ConfigurarHorarioAtencion(EntityTypeBuilder<HorarioAtencion> entidad)
     {
@@ -203,6 +264,18 @@ public class WilsonDbContext : DbContext
         entidad.Property(configuracion => configuracion.ValorMultaInasistencia)
             .HasPrecision(18, 2);
 
+        entidad.Property(configuracion => configuracion.MontoSena)
+            .HasPrecision(18, 2);
+
+        entidad.Property(configuracion => configuracion.AliasTransferencia)
+            .HasMaxLength(100);
+
+        entidad.Property(configuracion => configuracion.NombreTitularTransferencia)
+            .HasMaxLength(120);
+
+        entidad.Property(configuracion => configuracion.MensajePagoReserva)
+            .HasMaxLength(300);
+
         entidad.HasData(new ConfiguracionNegocio
         {
             Id = 1,
@@ -213,7 +286,13 @@ public class WilsonDbContext : DbContext
             HorasAnticipacionCancelacion = 2,
             HorasAnticipacionRecordatorio = 4,
             ValorMultaInasistencia = 0,
+            MinutosEsperaReserva = 30,
+            MontoSena = 25000,
+            AliasTransferencia = "wilson.futbol5",
+            NombreTitularTransferencia = "Wilson Futbol 5",
+            MensajePagoReserva = "Para confirmar la reserva, transferi la seña y envia el comprobante al dueño.",
             FechaActualizacion = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+
         });
     }
 

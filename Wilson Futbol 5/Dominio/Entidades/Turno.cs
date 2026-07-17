@@ -32,6 +32,15 @@ public class Turno
 
     public decimal PrecioTotal { get; set; }
 
+    // Monto que el cliente debe transferir como seña para que el dueño confirme el turno.
+    public decimal MontoSena { get; set; }
+
+    // Fecha y hora límite hasta la cual el turno queda bloqueado esperando la seña.
+    public DateTime? FechaVencimientoReserva { get; set; }
+
+    // Fecha en la que el dueño confirma manualmente que recibió la seña.
+    public DateTime? FechaConfirmacion { get; set; }
+
     public DateTime FechaReserva { get; set; } = DateTime.UtcNow;
 
     public DateTime? FechaCancelacion { get; set; }

@@ -2,12 +2,30 @@ import { useEffect, useState } from 'react'
 import logoWilson from './assets/LogoWilson.png'
 
 const API_URL = 'https://localhost:7094/api'
+const CLAVE_DUENO = import.meta.env.VITE_ADMIN_KEY ?? ''
+const SESSION_DUENO_KEY = 'wilson_modo_dueno'
 
 const datosReservaIniciales = {
   apellido: '',
   nombre: '',
   telefonoCliente: '',
 }
+
+const opcionesDiasSemana = [
+  { valor: '1', texto: 'Lunes' },
+  { valor: '2', texto: 'Martes' },
+  { valor: '3', texto: 'Miércoles' },
+  { valor: '4', texto: 'Jueves' },
+  { valor: '5', texto: 'Viernes' },
+  { valor: '6', texto: 'Sábado' },
+  { valor: '0', texto: 'Domingo' },
+]
+
+const opcionesHorasTurnoFijo = Array.from({ length: 24 }, (_, hora) => {
+  const horaTexto = String(hora).padStart(2, '0')
+
+  return `${horaTexto}:00`
+})
 
 function obtenerFechaHoy() {
   const fecha = new Date()
@@ -16,6 +34,29 @@ function obtenerFechaHoy() {
   const dia = String(fecha.getDate()).padStart(2, '0')
 
   return `${anio}-${mes}-${dia}`
+}
+
+function obtenerDatosTurnoFijoIniciales() {
+  return {
+    apellido: '',
+    diaSemana: '1',
+    fechaDesde: obtenerFechaHoy(),
+    horaInicio: '22:00',
+    nombre: '',
+    observacion: '',
+    telefonoCliente: '',
+  }
+}
+
+function obtenerDatosExcepcionHorarioIniciales() {
+  return {
+    fechaDesde: obtenerFechaHoy(),
+    fechaHasta: obtenerFechaHoy(),
+    horaApertura: '18:00',
+    horaCierre: '23:00',
+    motivo: '',
+    tipo: 'cerrado',
+  }
 }
 
 function formatearHora(fechaIso) {
@@ -31,6 +72,43 @@ function formatearFecha(fechaIso) {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(fechaIso))
+}
+
+function formatearFechaSimple(fecha) {
+  if (!fecha) {
+    return '-'
+  }
+
+  const fechaNormalizada = fecha.split('T')[0]
+  const [anio, mes, dia] = fechaNormalizada.split('-')
+
+  return `${dia}/${mes}/${anio}`
+}
+
+function formatearHoraSimple(hora) {
+  if (!hora) {
+    return '-'
+  }
+
+  return hora.slice(0, 5)
+}
+
+function normalizarHoraParaApi(hora) {
+  return hora.length === 5 ? `${hora}:00` : hora
+}
+
+function obtenerHeadersAdmin(headers = {}) {
+  return {
+    ...headers,
+    'X-Admin-Key': CLAVE_DUENO,
+  }
+}
+
+function obtenerHoraFinTurnoFijo(horaInicio) {
+  const [hora] = horaInicio.split(':')
+  const horaFin = (Number(hora) + 1) % 24
+
+  return `${String(horaFin).padStart(2, '0')}:00`
 }
 
 function formatearPrecio(valor) {
@@ -67,6 +145,7 @@ function App() {
   // Guardamos los horarios que devuelve la API.
   // Arranca vacio porque al cargar la pantalla todavia no pedimos datos.
   const [horarios, setHorarios] = useState([])
+  const [disponibilidad, setDisponibilidad] = useState(null)
 
   // Guardamos el horario que el cliente eligio para reservar.
   // Si vale null, significa que todavia no eligio ningun horario.
@@ -83,6 +162,59 @@ function App() {
   const [errorReserva, setErrorReserva] = useState('')
   const [turnoConfirmado, setTurnoConfirmado] = useState(null)
 
+  // Control simple de acceso al panel del dueno.
+  // Mas adelante esto se reemplaza por login real con backend.
+  const [modoDueno, setModoDueno] = useState(
+    () => sessionStorage.getItem(SESSION_DUENO_KEY) === 'true',
+  )
+  const [mostrarAccesoDueno, setMostrarAccesoDueno] = useState(
+    () => window.location.pathname === '/admin',
+  )
+  const [claveDueno, setClaveDueno] = useState('')
+  const [errorAccesoDueno, setErrorAccesoDueno] = useState('')
+
+  // Guardamos las reservas que el dueno tiene pendientes de revisar.
+  const [turnosPendientes, setTurnosPendientes] = useState([])
+
+  // Estados propios del panel del dueno.
+  const [cargandoPendientes, setCargandoPendientes] = useState(false)
+  const [errorAdmin, setErrorAdmin] = useState('')
+  const [mensajeAdmin, setMensajeAdmin] = useState('')
+
+  // Guardamos los turnos fijos que ya tiene cargados el dueno.
+  const [turnosFijos, setTurnosFijos] = useState([])
+  const [cargandoTurnosFijos, setCargandoTurnosFijos] = useState(false)
+  const [creandoTurnoFijo, setCreandoTurnoFijo] = useState(false)
+  const [desactivandoTurnoFijoId, setDesactivandoTurnoFijoId] = useState(null)
+  const [errorTurnosFijos, setErrorTurnosFijos] = useState('')
+  const [mensajeTurnosFijos, setMensajeTurnosFijos] = useState('')
+  const [datosTurnoFijo, setDatosTurnoFijo] = useState(obtenerDatosTurnoFijoIniciales)
+
+  // Guardamos feriados, vacaciones y dias especiales cargados por el dueno.
+  const [excepcionesHorario, setExcepcionesHorario] = useState([])
+  const [cargandoExcepcionesHorario, setCargandoExcepcionesHorario] = useState(false)
+  const [creandoExcepcionHorario, setCreandoExcepcionHorario] = useState(false)
+  const [eliminandoExcepcionHorarioId, setEliminandoExcepcionHorarioId] = useState(null)
+  const [errorExcepcionesHorario, setErrorExcepcionesHorario] = useState('')
+  const [mensajeExcepcionesHorario, setMensajeExcepcionesHorario] = useState('')
+  const [datosExcepcionHorario, setDatosExcepcionHorario] = useState(
+    obtenerDatosExcepcionHorarioIniciales,
+  )
+
+  // Guardamos la configuracion semanal normal de atencion.
+  const [horariosAtencion, setHorariosAtencion] = useState([])
+  const [cargandoHorariosAtencion, setCargandoHorariosAtencion] = useState(false)
+  const [guardandoHorarioAtencionId, setGuardandoHorarioAtencionId] = useState(null)
+  const [errorHorariosAtencion, setErrorHorariosAtencion] = useState('')
+  const [mensajeHorariosAtencion, setMensajeHorariosAtencion] = useState('')
+
+  // Guardamos precios, sena y datos de transferencia del negocio.
+  const [configuracionNegocio, setConfiguracionNegocio] = useState(null)
+  const [cargandoConfiguracionNegocio, setCargandoConfiguracionNegocio] = useState(false)
+  const [guardandoConfiguracionNegocio, setGuardandoConfiguracionNegocio] = useState(false)
+  const [errorConfiguracionNegocio, setErrorConfiguracionNegocio] = useState('')
+  const [mensajeConfiguracionNegocio, setMensajeConfiguracionNegocio] = useState('')
+
   async function obtenerDisponibilidad(fecha) {
     setCargando(true)
     setError('')
@@ -95,13 +227,174 @@ function App() {
       }
 
       const datos = await respuesta.json()
-      setHorarios(datos)
+      setDisponibilidad(datos)
+      setHorarios(datos.horarios ?? [])
     } catch (errorActual) {
       setHorarios([])
+      setDisponibilidad(null)
       setError(errorActual.message)
     } finally {
       setCargando(false)
     }
+  }
+
+  async function obtenerTurnosPendientesConfirmacion() {
+    setCargandoPendientes(true)
+    setErrorAdmin('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos/pendientes-confirmacion`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener las reservas pendientes.')
+      }
+
+      const datos = await respuesta.json()
+      setTurnosPendientes(datos)
+    } catch (errorActual) {
+      setTurnosPendientes([])
+      setErrorAdmin(errorActual.message)
+    } finally {
+      setCargandoPendientes(false)
+    }
+  }
+
+  async function obtenerTurnosFijos() {
+    setCargandoTurnosFijos(true)
+    setErrorTurnosFijos('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos-fijos`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener los turnos fijos.')
+      }
+
+      const datos = await respuesta.json()
+
+      // El backend conserva el historial, pero en el panel mostramos solo los turnos fijos activos.
+      setTurnosFijos(datos.filter((turnoFijo) => turnoFijo.activo))
+    } catch (errorActual) {
+      setTurnosFijos([])
+      setErrorTurnosFijos(errorActual.message)
+    } finally {
+      setCargandoTurnosFijos(false)
+    }
+  }
+
+  async function obtenerExcepcionesHorario() {
+    setCargandoExcepcionesHorario(true)
+    setErrorExcepcionesHorario('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/excepciones-horario`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener las excepciones de horario.')
+      }
+
+      const datos = await respuesta.json()
+      setExcepcionesHorario(datos)
+    } catch (errorActual) {
+      setExcepcionesHorario([])
+      setErrorExcepcionesHorario(errorActual.message)
+    } finally {
+      setCargandoExcepcionesHorario(false)
+    }
+  }
+
+  async function obtenerHorariosAtencion() {
+    setCargandoHorariosAtencion(true)
+    setErrorHorariosAtencion('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/horarios-atencion`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener los horarios de atención.')
+      }
+
+      const datos = await respuesta.json()
+      setHorariosAtencion(datos)
+    } catch (errorActual) {
+      setHorariosAtencion([])
+      setErrorHorariosAtencion(errorActual.message)
+    } finally {
+      setCargandoHorariosAtencion(false)
+    }
+  }
+
+  async function obtenerConfiguracionNegocio() {
+    setCargandoConfiguracionNegocio(true)
+    setErrorConfiguracionNegocio('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/configuracion-negocio`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudo obtener la configuración del negocio.')
+      }
+
+      const datos = await respuesta.json()
+      setConfiguracionNegocio(datos)
+    } catch (errorActual) {
+      setConfiguracionNegocio(null)
+      setErrorConfiguracionNegocio(errorActual.message)
+    } finally {
+      setCargandoConfiguracionNegocio(false)
+    }
+  }
+
+  async function ejecutarAccionAdmin(turnoId, ruta, mensajeExito) {
+    setErrorAdmin('')
+    setMensajeAdmin('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}${ruta}`, {
+        headers: obtenerHeadersAdmin(),
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeAdmin(mensajeExito)
+
+      // Despues de una accion del dueno, refrescamos pendientes y disponibilidad.
+      await obtenerTurnosPendientesConfirmacion()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorAdmin(errorActual.message)
+    }
+  }
+
+  async function confirmarTurnoPendiente(turnoId) {
+    // El dueno usa esta accion cuando decide aprobar la reserva.
+    await ejecutarAccionAdmin(
+      turnoId,
+      `/turnos/confirmar/${turnoId}`,
+      'Turno confirmado correctamente.',
+    )
+  }
+
+  async function rechazarTurnoPendiente(turnoId) {
+    // El dueno usa esta accion cuando decide liberar el horario.
+    await ejecutarAccionAdmin(
+      turnoId,
+      `/turnos/rechazar-pendiente/${turnoId}`,
+      'Reserva pendiente rechazada correctamente.',
+    )
   }
 
   // useEffect ejecuta una accion cuando cambia una dependencia.
@@ -109,6 +402,51 @@ function App() {
   useEffect(() => {
     obtenerDisponibilidad(fechaSeleccionada)
   }, [fechaSeleccionada])
+
+  // Al cargar la pantalla, traemos tambien las reservas pendientes para el panel del dueno.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerTurnosPendientesConfirmacion()
+  }, [modoDueno])
+
+  // Al cargar la pantalla, traemos tambien los turnos fijos del dueno.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerTurnosFijos()
+  }, [modoDueno])
+
+  // Al cargar la pantalla, traemos feriados, vacaciones y dias especiales.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerExcepcionesHorario()
+  }, [modoDueno])
+
+  // Al cargar la pantalla, traemos la semana normal de atencion.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerHorariosAtencion()
+  }, [modoDueno])
+
+  // Al cargar la pantalla del dueno, traemos precios y datos de pago.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerConfiguracionNegocio()
+  }, [modoDueno])
 
   function cambiarFecha(evento) {
     setFechaSeleccionada(evento.target.value)
@@ -130,6 +468,287 @@ function App() {
       ...datosActuales,
       [name]: value,
     }))
+  }
+
+  function cambiarDatoTurnoFijo(evento) {
+    const { name, value } = evento.target
+
+    setDatosTurnoFijo((datosActuales) => ({
+      ...datosActuales,
+      [name]: value,
+    }))
+  }
+
+  function cambiarDatoExcepcionHorario(evento) {
+    const { name, value } = evento.target
+
+    setDatosExcepcionHorario((datosActuales) => ({
+      ...datosActuales,
+      [name]: value,
+    }))
+  }
+
+  function cambiarDatoHorarioAtencion(horarioAtencionId, campo, valor) {
+    setHorariosAtencion((horariosActuales) =>
+      horariosActuales.map((horario) =>
+        horario.horarioAtencionId === horarioAtencionId
+          ? { ...horario, [campo]: valor }
+          : horario,
+      ),
+    )
+  }
+
+  function cambiarDatoConfiguracionNegocio(evento) {
+    const { name, value } = evento.target
+
+    setConfiguracionNegocio((configuracionActual) => ({
+      ...configuracionActual,
+      [name]: value,
+    }))
+  }
+
+  async function crearTurnoFijo(evento) {
+    evento.preventDefault()
+    setErrorTurnosFijos('')
+    setMensajeTurnosFijos('')
+
+    setCreandoTurnoFijo(true)
+
+    try {
+      const horaFinTurnoFijo = obtenerHoraFinTurnoFijo(datosTurnoFijo.horaInicio)
+
+      const respuesta = await fetch(`${API_URL}/turnos-fijos`, {
+        body: JSON.stringify({
+          ...datosTurnoFijo,
+          diaSemana: Number(datosTurnoFijo.diaSemana),
+          fechaHasta: null,
+          horaFin: normalizarHoraParaApi(horaFinTurnoFijo),
+          horaInicio: normalizarHoraParaApi(datosTurnoFijo.horaInicio),
+        }),
+        headers: {
+          ...obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        },
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeTurnosFijos('Turno fijo creado correctamente.')
+      setDatosTurnoFijo(obtenerDatosTurnoFijoIniciales())
+
+      // Refrescamos la lista y la agenda porque un turno fijo nuevo bloquea horarios.
+      await obtenerTurnosFijos()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorTurnosFijos(errorActual.message)
+    } finally {
+      setCreandoTurnoFijo(false)
+    }
+  }
+
+  async function desactivarTurnoFijo(turnoFijoId) {
+    const confirmaDesactivacion = window.confirm('¿Seguro que querés desactivar este turno fijo?')
+
+    if (!confirmaDesactivacion) {
+      return
+    }
+
+    setErrorTurnosFijos('')
+    setMensajeTurnosFijos('')
+    setDesactivandoTurnoFijoId(turnoFijoId)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos-fijos/${turnoFijoId}/desactivar`, {
+        headers: obtenerHeadersAdmin(),
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeTurnosFijos('Turno fijo desactivado correctamente.')
+
+      // Refrescamos la lista y la agenda porque el horario puede volver a quedar disponible.
+      await obtenerTurnosFijos()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorTurnosFijos(errorActual.message)
+    } finally {
+      setDesactivandoTurnoFijoId(null)
+    }
+  }
+
+  async function crearExcepcionHorario(evento) {
+    evento.preventDefault()
+    setErrorExcepcionesHorario('')
+    setMensajeExcepcionesHorario('')
+
+    const abierto = datosExcepcionHorario.tipo === 'abierto'
+
+    if (datosExcepcionHorario.fechaHasta < datosExcepcionHorario.fechaDesde) {
+      setErrorExcepcionesHorario('La fecha hasta no puede ser menor que la fecha desde.')
+      return
+    }
+
+    if (abierto && datosExcepcionHorario.horaApertura >= datosExcepcionHorario.horaCierre) {
+      setErrorExcepcionesHorario('La hora de apertura debe ser menor a la hora de cierre.')
+      return
+    }
+
+    setCreandoExcepcionHorario(true)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/excepciones-horario`, {
+        body: JSON.stringify({
+          fechaDesde: datosExcepcionHorario.fechaDesde,
+          fechaHasta: datosExcepcionHorario.fechaHasta,
+          abierto,
+          horaApertura: abierto ? normalizarHoraParaApi(datosExcepcionHorario.horaApertura) : null,
+          horaCierre: abierto ? normalizarHoraParaApi(datosExcepcionHorario.horaCierre) : null,
+          motivo: datosExcepcionHorario.motivo,
+        }),
+        headers: {
+          ...obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        },
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeExcepcionesHorario('Excepción de horario creada correctamente.')
+      setDatosExcepcionHorario(obtenerDatosExcepcionHorarioIniciales())
+
+      // Refrescamos lista y agenda porque la excepcion puede abrir o cerrar una fecha.
+      await obtenerExcepcionesHorario()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorExcepcionesHorario(errorActual.message)
+    } finally {
+      setCreandoExcepcionHorario(false)
+    }
+  }
+
+  async function eliminarExcepcionHorario(excepcionHorarioId) {
+    const confirmaEliminacion = window.confirm('¿Seguro que querés eliminar esta excepción?')
+
+    if (!confirmaEliminacion) {
+      return
+    }
+
+    setErrorExcepcionesHorario('')
+    setMensajeExcepcionesHorario('')
+    setEliminandoExcepcionHorarioId(excepcionHorarioId)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/excepciones-horario/${excepcionHorarioId}`, {
+        headers: obtenerHeadersAdmin(),
+        method: 'DELETE',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeExcepcionesHorario('Excepción eliminada correctamente.')
+
+      // Al eliminar, esa fecha vuelve al horario normal semanal.
+      await obtenerExcepcionesHorario()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorExcepcionesHorario(errorActual.message)
+    } finally {
+      setEliminandoExcepcionHorarioId(null)
+    }
+  }
+
+  async function guardarHorarioAtencion(horario) {
+    setErrorHorariosAtencion('')
+    setMensajeHorariosAtencion('')
+
+    if (horario.activo && horario.horaApertura >= horario.horaCierre) {
+      setErrorHorariosAtencion('La hora de apertura debe ser menor a la hora de cierre.')
+      return
+    }
+
+    setGuardandoHorarioAtencionId(horario.horarioAtencionId)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/horarios-atencion/${horario.horarioAtencionId}`, {
+        body: JSON.stringify({
+          activo: horario.activo,
+          horaApertura: normalizarHoraParaApi(formatearHoraSimple(horario.horaApertura)),
+          horaCierre: normalizarHoraParaApi(formatearHoraSimple(horario.horaCierre)),
+        }),
+        headers: {
+          ...obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        },
+        method: 'PUT',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeHorariosAtencion('Horario actualizado correctamente.')
+
+      // Refrescamos horarios y disponibilidad porque la agenda puede cambiar.
+      await obtenerHorariosAtencion()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorHorariosAtencion(errorActual.message)
+    } finally {
+      setGuardandoHorarioAtencionId(null)
+    }
+  }
+
+  async function guardarConfiguracionNegocio(evento) {
+    evento.preventDefault()
+    setErrorConfiguracionNegocio('')
+    setMensajeConfiguracionNegocio('')
+
+    if (!configuracionNegocio) {
+      return
+    }
+
+    setGuardandoConfiguracionNegocio(true)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/configuracion-negocio`, {
+        body: JSON.stringify({
+          precioPorPersona: Number(configuracionNegocio.precioPorPersona),
+          cantidadJugadoresPorTurno: Number(configuracionNegocio.cantidadJugadoresPorTurno),
+          montoSena: Number(configuracionNegocio.montoSena),
+          aliasTransferencia: configuracionNegocio.aliasTransferencia,
+          nombreTitularTransferencia: configuracionNegocio.nombreTitularTransferencia,
+          mensajePagoReserva: configuracionNegocio.mensajePagoReserva,
+        }),
+        headers: {
+          ...obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        },
+        method: 'PUT',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      const datos = await respuesta.json()
+
+      setConfiguracionNegocio(datos)
+      setMensajeConfiguracionNegocio('Configuración actualizada correctamente.')
+
+      // Refrescamos disponibilidad para que el cliente vea el precio actualizado.
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorConfiguracionNegocio(errorActual.message)
+    } finally {
+      setGuardandoConfiguracionNegocio(false)
+    }
   }
 
   async function reservarTurno(evento) {
@@ -182,9 +801,33 @@ function App() {
     setHorarioSeleccionado(null)
   }
 
+  function ingresarModoDueno(evento) {
+    evento.preventDefault()
+    setErrorAccesoDueno('')
+
+    if (claveDueno !== CLAVE_DUENO) {
+      setErrorAccesoDueno('Clave incorrecta.')
+      return
+    }
+
+    sessionStorage.setItem(SESSION_DUENO_KEY, 'true')
+    setModoDueno(true)
+    setMostrarAccesoDueno(false)
+    setClaveDueno('')
+  }
+
+  function salirModoDueno() {
+    sessionStorage.removeItem(SESSION_DUENO_KEY)
+    setModoDueno(false)
+    setMostrarAccesoDueno(false)
+    setClaveDueno('')
+    setErrorAccesoDueno('')
+  }
+
   const precioPorPersona = horarios.length > 0 ? horarios[0].precioPorPersona : 0
   const cantidadDisponibles = horarios.filter((horario) => horario.disponible).length
   const cantidadReservados = horarios.length - cantidadDisponibles
+  const esRutaAdmin = window.location.pathname === '/admin'
 
   return (
     <main className="min-h-screen bg-[#061934] px-4 py-5 text-white">
@@ -202,11 +845,12 @@ function App() {
                   Wilson Futbol 5
                 </p>
                 <h1 className="mt-1 text-3xl font-black text-white sm:text-4xl">
-                  Reserva tu cancha
+                  {esRutaAdmin ? 'Panel del dueño' : 'Reserva tu cancha'}
                 </h1>
               </div>
             </div>
 
+            {!esRutaAdmin && (
             <div className="grid w-full grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-[#071f43] p-3 sm:w-auto sm:grid-cols-3">
               <div className="rounded-xl bg-white/8 px-3 py-2">
                 <p className="text-xs font-semibold text-white/65">Libres</p>
@@ -223,9 +867,73 @@ function App() {
                 </p>
               </div>
             </div>
+            )}
           </div>
+
+          {esRutaAdmin && (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-[#071f43] p-3">
+            {modoDueno ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-bold text-[#d6a72b]">Modo dueño activo</p>
+                <button
+                  className="w-fit rounded-xl border border-white/20 bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff]"
+                  onClick={salirModoDueno}
+                  type="button"
+                >
+                  Salir
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-white/70">
+                  Los administradores pueden acceder al panel del dueño.
+                </p>
+
+                {!mostrarAccesoDueno && (
+                  <button
+                    className="w-fit rounded-xl border border-[#d6a72b] bg-transparent px-4 py-2 text-sm font-black text-[#d6a72b] transition hover:bg-[#d6a72b] hover:text-[#061934]"
+                    onClick={() => setMostrarAccesoDueno(true)}
+                    type="button"
+                  >
+                    Acceso dueño
+                  </button>
+                )}
+
+                {mostrarAccesoDueno && (
+                  <form
+                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start"
+                    onSubmit={ingresarModoDueno}
+                  >
+                    <div>
+                      <input
+                        className="w-full rounded-xl border border-white/15 bg-white px-3 py-2 text-sm font-semibold text-[#061934] outline-none focus:border-[#d6a72b] sm:w-44"
+                        onChange={(evento) => setClaveDueno(evento.target.value)}
+                        placeholder="Clave dueño"
+                        type="password"
+                        value={claveDueno}
+                      />
+                      {errorAccesoDueno && (
+                        <p className="mt-1 text-xs font-bold text-[#ffb4a8]">
+                          {errorAccesoDueno}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      className="rounded-xl bg-[#d6a72b] px-4 py-2 text-sm font-black text-[#061934] transition hover:bg-[#edc455]"
+                      type="submit"
+                    >
+                      Entrar
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+          )}
         </header>
 
+        {!esRutaAdmin && (
         <section className="grid gap-5 lg:grid-cols-[380px_1fr]">
           <aside className="rounded-[28px] border border-[#d6a72b]/35 bg-[#0b2f63] p-5 shadow-2xl shadow-black/25">
             <div className="rounded-2xl border border-white/10 bg-[#071f43] p-4">
@@ -281,7 +989,7 @@ function App() {
                 />
 
                 <label className="text-sm font-bold text-white" htmlFor="telefonoCliente">
-                  Telefono
+                  Teléfono
                 </label>
                 <input
                   className="rounded-xl border border-white/15 bg-white px-3 py-3 text-sm text-[#061934] outline-none focus:border-[#d6a72b]"
@@ -304,7 +1012,9 @@ function App() {
 
               {turnoConfirmado && (
                 <div className="mt-4 rounded-xl border border-[#d6a72b] bg-white p-4 text-sm text-[#061934]">
-                  <p className="text-lg font-black text-[#0b2f63]">Turno confirmado</p>
+                  <p className="text-lg font-black text-[#0b2f63]">
+                    Reserva enviada al dueño
+                  </p>
                   <dl className="mt-3 grid gap-2">
                     <div>
                       <dt className="font-bold text-[#0b2f63]">Fecha</dt>
@@ -322,10 +1032,43 @@ function App() {
                       <dd>{turnoConfirmado.nombreCliente}</dd>
                     </div>
                     <div>
-                      <dt className="font-bold text-[#0b2f63]">Telefono</dt>
+                      <dt className="font-bold text-[#0b2f63]">Teléfono</dt>
                       <dd>{turnoConfirmado.telefonoCliente}</dd>
                     </div>
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Monto sugerido</dt>
+                      <dd>{formatearPrecio(turnoConfirmado.montoSena)}</dd>
+                    </div>
                   </dl>
+
+                  <div className="mt-4 rounded-xl border border-[#d6a72b]/60 bg-[#fff8e7] p-3">
+                    <p className="text-sm font-black uppercase text-[#0b2f63]">
+                      Datos para transferir
+                    </p>
+                    <dl className="mt-3 grid gap-2">
+                      {turnoConfirmado.aliasTransferencia && (
+                        <div>
+                          <dt className="font-bold text-[#0b2f63]">Alias</dt>
+                          <dd className="text-base font-black">
+                            {turnoConfirmado.aliasTransferencia}
+                          </dd>
+                        </div>
+                      )}
+                      {turnoConfirmado.nombreTitularTransferencia && (
+                        <div>
+                          <dt className="font-bold text-[#0b2f63]">Titular</dt>
+                          <dd>{turnoConfirmado.nombreTitularTransferencia}</dd>
+                        </div>
+                      )}
+                      {turnoConfirmado.mensajePagoReserva && (
+                        <div>
+                          <dt className="font-bold text-[#0b2f63]">Mensaje</dt>
+                          <dd>{turnoConfirmado.mensajePagoReserva}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+
                   <button
                     className="mt-4 w-full rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff]"
                     onClick={iniciarNuevaReserva}
@@ -363,7 +1106,13 @@ function App() {
               </div>
             )}
 
-            {!cargando && !error && horarios.length === 0 && (
+            {!cargando && !error && disponibilidad && !disponibilidad.abierto && (
+              <div className="mt-5 rounded-xl border border-[#d6a72b]/50 bg-[#fff8e7] p-4 text-sm font-semibold text-[#7a5200]">
+                {disponibilidad.motivoNoDisponible ?? 'La cancha no abre en esta fecha.'}
+              </div>
+            )}
+
+            {!cargando && !error && disponibilidad?.abierto && horarios.length === 0 && (
               <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
                 No hay horarios cargados para esta fecha.
               </div>
@@ -404,6 +1153,883 @@ function App() {
             </div>
           </section>
         </section>
+        )}
+
+        {esRutaAdmin && modoDueno && (
+          <>
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueño
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">
+                Configuración del negocio
+              </h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoConfiguracionNegocio}
+              onClick={obtenerConfiguracionNegocio}
+              type="button"
+            >
+              {cargandoConfiguracionNegocio ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {mensajeConfiguracionNegocio && (
+            <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+              {mensajeConfiguracionNegocio}
+            </p>
+          )}
+
+          {errorConfiguracionNegocio && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorConfiguracionNegocio}
+            </p>
+          )}
+
+          {configuracionNegocio && (
+            <form
+              className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+              onSubmit={guardarConfiguracionNegocio}
+            >
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className="text-sm font-bold text-[#0b2f63]" htmlFor="precioPorPersona">
+                    Precio por persona
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                    id="precioPorPersona"
+                    min="0"
+                    name="precioPorPersona"
+                    onChange={cambiarDatoConfiguracionNegocio}
+                    required
+                    type="number"
+                    value={configuracionNegocio.precioPorPersona}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-[#0b2f63]" htmlFor="cantidadJugadoresPorTurno">
+                    Jugadores por turno
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                    id="cantidadJugadoresPorTurno"
+                    min="1"
+                    name="cantidadJugadoresPorTurno"
+                    onChange={cambiarDatoConfiguracionNegocio}
+                    required
+                    type="number"
+                    value={configuracionNegocio.cantidadJugadoresPorTurno}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-[#0b2f63]" htmlFor="montoSena">
+                    Seña / reserva
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                    id="montoSena"
+                    min="0"
+                    name="montoSena"
+                    onChange={cambiarDatoConfiguracionNegocio}
+                    required
+                    type="number"
+                    value={configuracionNegocio.montoSena}
+                  />
+                </div>
+
+                <div className="rounded-xl bg-[#d6a72b] px-3 py-2 text-[#061934]">
+                  <p className="text-xs font-bold">Total cancha</p>
+                  <p className="mt-1 text-xl font-black">
+                    {formatearPrecio(
+                      Number(configuracionNegocio.precioPorPersona) *
+                        Number(configuracionNegocio.cantidadJugadoresPorTurno),
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-bold text-[#0b2f63]" htmlFor="aliasTransferencia">
+                    Alias
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                    id="aliasTransferencia"
+                    maxLength={100}
+                    name="aliasTransferencia"
+                    onChange={cambiarDatoConfiguracionNegocio}
+                    type="text"
+                    value={configuracionNegocio.aliasTransferencia}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-[#0b2f63]" htmlFor="nombreTitularTransferencia">
+                    Titular
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                    id="nombreTitularTransferencia"
+                    maxLength={120}
+                    name="nombreTitularTransferencia"
+                    onChange={cambiarDatoConfiguracionNegocio}
+                    type="text"
+                    value={configuracionNegocio.nombreTitularTransferencia}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="mensajePagoReserva">
+                  Mensaje de pago
+                </label>
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="mensajePagoReserva"
+                  maxLength={300}
+                  name="mensajePagoReserva"
+                  onChange={cambiarDatoConfiguracionNegocio}
+                  value={configuracionNegocio.mensajePagoReserva}
+                />
+              </div>
+
+              <button
+                className="mt-4 rounded-xl bg-[#0b2f63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={guardandoConfiguracionNegocio}
+                type="submit"
+              >
+                {guardandoConfiguracionNegocio ? 'Guardando...' : 'Guardar configuración'}
+              </button>
+            </form>
+          )}
+        </section>
+
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueño
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">
+                Reservas pendientes de aprobación
+              </h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoPendientes}
+              onClick={obtenerTurnosPendientesConfirmacion}
+              type="button"
+            >
+              {cargandoPendientes ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {mensajeAdmin && (
+            <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+              {mensajeAdmin}
+            </p>
+          )}
+
+          {errorAdmin && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorAdmin}
+            </p>
+          )}
+
+          {!cargandoPendientes && turnosPendientes.length === 0 && (
+            <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
+              No hay reservas pendientes para revisar.
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {turnosPendientes.map((turno) => (
+                <article
+                  className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                  key={turno.turnoId}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase text-[#d6a72b]">
+                        Turno #{turno.turnoId}
+                      </p>
+                      <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                        {turno.nombreCliente}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-[#566273]">
+                        {turno.telefonoCliente}
+                      </p>
+                    </div>
+
+                    <span
+                      className="inline-flex w-fit rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-black text-[#0b2f63]"
+                    >
+                      {turno.textoEstado}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Fecha</dt>
+                      <dd>{formatearFecha(turno.fechaHoraInicio)}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Horario</dt>
+                      <dd>
+                        {formatearHora(turno.fechaHoraInicio)} a{' '}
+                        {formatearHora(turno.fechaHoraFin)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Monto sugerido</dt>
+                      <dd>{formatearPrecio(turno.montoSena)}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Total</dt>
+                      <dd>{formatearPrecio(turno.precioTotal)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      className="rounded-xl bg-[#0b2f63] px-3 py-2 text-sm font-black text-white transition hover:bg-[#164d95]"
+                      onClick={() => confirmarTurnoPendiente(turno.turnoId)}
+                      type="button"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      className="rounded-xl border border-[#9a3d2d] bg-white px-3 py-2 text-sm font-black text-[#9a3d2d] transition hover:bg-[#fff5f2]"
+                      onClick={() => rechazarTurnoPendiente(turno.turnoId)}
+                      type="button"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueño
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">
+                Horarios de atención
+              </h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoHorariosAtencion}
+              onClick={obtenerHorariosAtencion}
+              type="button"
+            >
+              {cargandoHorariosAtencion ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {mensajeHorariosAtencion && (
+            <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+              {mensajeHorariosAtencion}
+            </p>
+          )}
+
+          {errorHorariosAtencion && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorHorariosAtencion}
+            </p>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {horariosAtencion.map((horario) => (
+              <article
+                className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                key={horario.horarioAtencionId}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      Día semanal
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                      {horario.diaSemanaTexto}
+                    </h3>
+                  </div>
+
+                  <label className="inline-flex w-fit items-center gap-2 rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-black text-[#0b2f63]">
+                    <input
+                      checked={horario.activo}
+                      className="h-4 w-4 accent-[#0b2f63]"
+                      onChange={(evento) =>
+                        cambiarDatoHorarioAtencion(
+                          horario.horarioAtencionId,
+                          'activo',
+                          evento.target.checked,
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    {horario.activo ? 'Abierto' : 'Cerrado'}
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      className="text-sm font-bold text-[#0b2f63]"
+                      htmlFor={`apertura-${horario.horarioAtencionId}`}
+                    >
+                      Apertura
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b] disabled:bg-[#eef1f5]"
+                      disabled={!horario.activo}
+                      id={`apertura-${horario.horarioAtencionId}`}
+                      onChange={(evento) =>
+                        cambiarDatoHorarioAtencion(
+                          horario.horarioAtencionId,
+                          'horaApertura',
+                          evento.target.value,
+                        )
+                      }
+                      value={formatearHoraSimple(horario.horaApertura)}
+                    >
+                      {opcionesHorasTurnoFijo.map((hora) => (
+                        <option key={hora} value={hora}>
+                          {hora}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      className="text-sm font-bold text-[#0b2f63]"
+                      htmlFor={`cierre-${horario.horarioAtencionId}`}
+                    >
+                      Cierre
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b] disabled:bg-[#eef1f5]"
+                      disabled={!horario.activo}
+                      id={`cierre-${horario.horarioAtencionId}`}
+                      onChange={(evento) =>
+                        cambiarDatoHorarioAtencion(
+                          horario.horarioAtencionId,
+                          'horaCierre',
+                          evento.target.value,
+                        )
+                      }
+                      value={formatearHoraSimple(horario.horaCierre)}
+                    >
+                      {opcionesHorasTurnoFijo.map((hora) => (
+                        <option key={hora} value={hora}>
+                          {hora}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  className="mt-4 rounded-xl bg-[#0b2f63] px-3 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={guardandoHorarioAtencionId === horario.horarioAtencionId}
+                  onClick={() => guardarHorarioAtencion(horario)}
+                  type="button"
+                >
+                  {guardandoHorarioAtencionId === horario.horarioAtencionId
+                    ? 'Guardando...'
+                    : 'Guardar horario'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueño
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">Turnos fijos</h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoTurnosFijos}
+              onClick={obtenerTurnosFijos}
+              type="button"
+            >
+              {cargandoTurnosFijos ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          <form
+            className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+            onSubmit={crearTurnoFijo}
+          >
+            <p className="text-sm font-black uppercase text-[#d6a72b]">Nuevo turno fijo</p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoNombre">
+                  Nombre
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoNombre"
+                  maxLength={80}
+                  name="nombre"
+                  onChange={cambiarDatoTurnoFijo}
+                  required
+                  type="text"
+                  value={datosTurnoFijo.nombre}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoApellido">
+                  Apellido
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoApellido"
+                  maxLength={80}
+                  name="apellido"
+                  onChange={cambiarDatoTurnoFijo}
+                  required
+                  type="text"
+                  value={datosTurnoFijo.apellido}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoTelefono">
+                  Teléfono
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoTelefono"
+                  maxLength={20}
+                  name="telefonoCliente"
+                  onChange={cambiarDatoTurnoFijo}
+                  placeholder="+549..."
+                  required
+                  type="tel"
+                  value={datosTurnoFijo.telefonoCliente}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoDia">
+                  Día
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoDia"
+                  name="diaSemana"
+                  onChange={cambiarDatoTurnoFijo}
+                  value={datosTurnoFijo.diaSemana}
+                >
+                  {opcionesDiasSemana.map((dia) => (
+                    <option key={dia.valor} value={dia.valor}>
+                      {dia.texto}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoHoraInicio">
+                  Inicio
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoHoraInicio"
+                  name="horaInicio"
+                  onChange={cambiarDatoTurnoFijo}
+                  value={datosTurnoFijo.horaInicio}
+                >
+                  {opcionesHorasTurnoFijo.map((hora) => (
+                    <option key={hora} value={hora}>
+                      {hora}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-[#0b2f63]">
+                  Fin
+                </p>
+                <div className="mt-1 rounded-xl border border-[#d6dce5] bg-[#edf3ff] px-3 py-2 text-sm font-bold text-[#0b2f63]">
+                  {obtenerHoraFinTurnoFijo(datosTurnoFijo.horaInicio)}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoFechaDesde">
+                  Desde
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="turnoFijoFechaDesde"
+                  name="fechaDesde"
+                  onChange={cambiarDatoTurnoFijo}
+                  required
+                  type="date"
+                  value={datosTurnoFijo.fechaDesde}
+                />
+              </div>
+
+            </div>
+
+            <div className="mt-3">
+              <label className="text-sm font-bold text-[#0b2f63]" htmlFor="turnoFijoObservacion">
+                Observación
+              </label>
+              <textarea
+                className="mt-1 min-h-20 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                id="turnoFijoObservacion"
+                maxLength={300}
+                name="observacion"
+                onChange={cambiarDatoTurnoFijo}
+                value={datosTurnoFijo.observacion}
+              />
+            </div>
+
+            <button
+              className="mt-4 rounded-xl bg-[#0b2f63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={creandoTurnoFijo}
+              type="submit"
+            >
+              {creandoTurnoFijo ? 'Creando...' : 'Crear turno fijo'}
+            </button>
+          </form>
+
+          {mensajeTurnosFijos && (
+            <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+              {mensajeTurnosFijos}
+            </p>
+          )}
+
+          {errorTurnosFijos && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorTurnosFijos}
+            </p>
+          )}
+
+          {!cargandoTurnosFijos && turnosFijos.length === 0 && (
+            <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
+              No hay turnos fijos cargados.
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {turnosFijos.map((turnoFijo) => (
+              <article
+                className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                key={turnoFijo.turnoFijoId}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      {turnoFijo.diaSemanaTexto}
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                      {turnoFijo.nombreCliente}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-[#566273]">
+                      {turnoFijo.telefonoCliente}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${
+                      turnoFijo.activo
+                        ? 'bg-[#e9f2ff] text-[#0b2f63]'
+                        : 'bg-[#eef1f5] text-[#7c8797]'
+                    }`}
+                  >
+                    {turnoFijo.activo ? 'Activo' : 'Desactivado'}
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Horario</dt>
+                    <dd>
+                      {formatearHoraSimple(turnoFijo.horaInicio)} a{' '}
+                      {formatearHoraSimple(turnoFijo.horaFin)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Desde</dt>
+                    <dd>{formatearFechaSimple(turnoFijo.fechaDesde)}</dd>
+                  </div>
+                  {turnoFijo.observacion && (
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Observación</dt>
+                      <dd>{turnoFijo.observacion}</dd>
+                    </div>
+                  )}
+                </dl>
+
+                {turnoFijo.activo && (
+                  <button
+                    className="mt-4 rounded-xl border border-[#9a3d2d] bg-white px-3 py-2 text-sm font-black text-[#9a3d2d] transition hover:bg-[#fff5f2] disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={desactivandoTurnoFijoId === turnoFijo.turnoFijoId}
+                    onClick={() => desactivarTurnoFijo(turnoFijo.turnoFijoId)}
+                    type="button"
+                  >
+                    {desactivandoTurnoFijoId === turnoFijo.turnoFijoId
+                      ? 'Desactivando...'
+                      : 'Desactivar turno fijo'}
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueño
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">
+                Feriados y excepciones
+              </h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoExcepcionesHorario}
+              onClick={obtenerExcepcionesHorario}
+              type="button"
+            >
+              {cargandoExcepcionesHorario ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          <form
+            className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+            onSubmit={crearExcepcionHorario}
+          >
+            <p className="text-sm font-black uppercase text-[#d6a72b]">
+              Nueva excepción
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionFechaDesde">
+                  Desde
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="excepcionFechaDesde"
+                  name="fechaDesde"
+                  onChange={cambiarDatoExcepcionHorario}
+                  required
+                  type="date"
+                  value={datosExcepcionHorario.fechaDesde}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionFechaHasta">
+                  Hasta
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="excepcionFechaHasta"
+                  name="fechaHasta"
+                  onChange={cambiarDatoExcepcionHorario}
+                  required
+                  type="date"
+                  value={datosExcepcionHorario.fechaHasta}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionTipo">
+                  Tipo
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="excepcionTipo"
+                  name="tipo"
+                  onChange={cambiarDatoExcepcionHorario}
+                  value={datosExcepcionHorario.tipo}
+                >
+                  <option value="cerrado">Cerrado</option>
+                  <option value="abierto">Abierto especial</option>
+                </select>
+              </div>
+
+              {datosExcepcionHorario.tipo === 'abierto' && (
+                <>
+                  <div>
+                    <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionHoraApertura">
+                      Apertura
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                      id="excepcionHoraApertura"
+                      name="horaApertura"
+                      onChange={cambiarDatoExcepcionHorario}
+                      value={datosExcepcionHorario.horaApertura}
+                    >
+                      {opcionesHorasTurnoFijo.map((hora) => (
+                        <option key={hora} value={hora}>
+                          {hora}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionHoraCierre">
+                      Cierre
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                      id="excepcionHoraCierre"
+                      name="horaCierre"
+                      onChange={cambiarDatoExcepcionHorario}
+                      value={datosExcepcionHorario.horaCierre}
+                    >
+                      {opcionesHorasTurnoFijo.map((hora) => (
+                        <option key={hora} value={hora}>
+                          {hora}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <label className="text-sm font-bold text-[#0b2f63]" htmlFor="excepcionMotivo">
+                Motivo
+              </label>
+              <input
+                className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                id="excepcionMotivo"
+                maxLength={200}
+                name="motivo"
+                onChange={cambiarDatoExcepcionHorario}
+                placeholder="Feriado, vacaciones, evento especial..."
+                type="text"
+                value={datosExcepcionHorario.motivo}
+              />
+            </div>
+
+            <button
+              className="mt-4 rounded-xl bg-[#0b2f63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={creandoExcepcionHorario}
+              type="submit"
+            >
+              {creandoExcepcionHorario ? 'Creando...' : 'Crear excepción'}
+            </button>
+          </form>
+
+          {mensajeExcepcionesHorario && (
+            <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+              {mensajeExcepcionesHorario}
+            </p>
+          )}
+
+          {errorExcepcionesHorario && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorExcepcionesHorario}
+            </p>
+          )}
+
+          {!cargandoExcepcionesHorario && excepcionesHorario.length === 0 && (
+            <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
+              No hay excepciones cargadas.
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {excepcionesHorario.map((excepcion) => (
+              <article
+                className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                key={excepcion.excepcionHorarioId}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      {excepcion.fechaDesde === excepcion.fechaHasta
+                        ? formatearFechaSimple(excepcion.fechaDesde)
+                        : `${formatearFechaSimple(excepcion.fechaDesde)} a ${formatearFechaSimple(excepcion.fechaHasta)}`}
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                      {excepcion.textoEstado}
+                    </h3>
+                  </div>
+
+                  <span
+                    className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${
+                      excepcion.abierto
+                        ? 'bg-[#e9f2ff] text-[#0b2f63]'
+                        : 'bg-[#fff1df] text-[#9a5b00]'
+                    }`}
+                  >
+                    {excepcion.abierto ? 'Abierto' : 'Cerrado'}
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Horario</dt>
+                    <dd>
+                      {excepcion.abierto
+                        ? `${formatearHoraSimple(excepcion.horaApertura)} a ${formatearHoraSimple(excepcion.horaCierre)}`
+                        : 'Sin atención'}
+                    </dd>
+                  </div>
+                  {excepcion.motivo && (
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Motivo</dt>
+                      <dd>{excepcion.motivo}</dd>
+                    </div>
+                  )}
+                </dl>
+
+                <button
+                  className="mt-4 rounded-xl border border-[#9a3d2d] bg-white px-3 py-2 text-sm font-black text-[#9a3d2d] transition hover:bg-[#fff5f2] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={eliminandoExcepcionHorarioId === excepcion.excepcionHorarioId}
+                  onClick={() => eliminarExcepcionHorario(excepcion.excepcionHorarioId)}
+                  type="button"
+                >
+                  {eliminandoExcepcionHorarioId === excepcion.excepcionHorarioId
+                    ? 'Eliminando...'
+                    : 'Eliminar excepción'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+          </>
+        )}
       </section>
     </main>
   )

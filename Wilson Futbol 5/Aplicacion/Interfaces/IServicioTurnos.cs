@@ -8,9 +8,17 @@ namespace Wilson_Futbol_5.Aplicacion.Interfaces;
 
 public interface IServicioTurnos
 {
-    Task<IReadOnlyList<TurnoDisponibleDto>> ObtenerDisponibilidadPorFechaAsync(DateOnly fecha);
+    Task<DisponibilidadTurnosDto> ObtenerDisponibilidadPorFechaAsync(DateOnly fecha);
+
+    // Devuelve los turnos que estan esperando que el dueno confirme la sena.
+    Task<IReadOnlyList<TurnoPendienteConfirmacionDto>> ObtenerTurnosPendientesConfirmacionAsync();
 
     Task<TurnoReservadoDto> ReservarTurnoAsync(ReservarTurnoDto dto);
+
+    Task<TurnoConfirmadoDto> ConfirmarTurnoAsync(int turnoId);
+
+    // Permite que el dueno rechace una reserva pendiente si la sena no fue acreditada.
+    Task<TurnoCanceladoDto> RechazarTurnoPendienteAsync(int turnoId);
 
     Task<TurnoCanceladoDto> CancelarTurnoAsync(string tokenCancelacion);
 }

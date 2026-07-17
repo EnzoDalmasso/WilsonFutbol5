@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Wilson_Futbol_5.Infraestructura.Persistencia;
 
@@ -11,9 +12,11 @@ using Wilson_Futbol_5.Infraestructura.Persistencia;
 namespace Wilson_Futbol_5.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(WilsonDbContext))]
-    partial class WilsonDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717094602_CambiarExcepcionesHorarioARango")]
+    partial class CambiarExcepcionesHorarioARango
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,11 +95,6 @@ namespace Wilson_Futbol_5.Infraestructura.Persistencia.Migraciones
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AliasTransferencia")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<int>("CantidadJugadoresPorTurno")
                         .HasColumnType("int");
 
@@ -115,22 +113,12 @@ namespace Wilson_Futbol_5.Infraestructura.Persistencia.Migraciones
                     b.Property<int>("HorasAnticipacionRecordatorio")
                         .HasColumnType("int");
 
-                    b.Property<string>("MensajePagoReserva")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
                     b.Property<int>("MinutosEsperaReserva")
                         .HasColumnType("int");
 
                     b.Property<decimal>("MontoSena")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("NombreTitularTransferencia")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
 
                     b.Property<decimal>("PrecioPorPersona")
                         .HasPrecision(18, 2)
@@ -148,17 +136,14 @@ namespace Wilson_Futbol_5.Infraestructura.Persistencia.Migraciones
                         new
                         {
                             Id = 1,
-                            AliasTransferencia = "wilson.futbol5",
                             CantidadJugadoresPorTurno = 10,
                             DuracionCumpleaniosMinutos = 180,
                             DuracionTurnoNormalMinutos = 60,
                             FechaActualizacion = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             HorasAnticipacionCancelacion = 2,
                             HorasAnticipacionRecordatorio = 4,
-                            MensajePagoReserva = "Para confirmar la reserva, transferi la seña y envia el comprobante al dueño.",
                             MinutosEsperaReserva = 30,
                             MontoSena = 25000m,
-                            NombreTitularTransferencia = "Wilson Futbol 5",
                             PrecioPorPersona = 5000m,
                             ValorMultaInasistencia = 0m
                         });

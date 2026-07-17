@@ -10,6 +10,12 @@ public class TurnoDisponibleDto
 
     public bool Disponible { get; set; }
 
+    public string Estado { get; set; } = string.Empty;
+
+    public string TextoEstado { get; set; } = string.Empty;
+
+    public decimal MontoSena { get; set; }
+
     public decimal PrecioPorPersona { get; set; }
 
     public decimal PrecioTotal { get; set; }

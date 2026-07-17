@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Wilson_Futbol_5.Aplicacion.DTOs.Turnos;
 using Wilson_Futbol_5.Aplicacion.Interfaces;
+using Wilson_Futbol_5.Infraestructura.Seguridad;
 
 namespace Wilson_Futbol_5.Controllers;
 
@@ -21,7 +22,7 @@ public class TurnosController : ControllerBase
     // Ejemplo de uso:
     // GET /api/turnos/disponibilidad?fecha=2026-07-15
     [HttpGet("disponibilidad")]
-    public async Task<ActionResult<IReadOnlyList<TurnoDisponibleDto>>> ObtenerDisponibilidad(
+    public async Task<ActionResult<DisponibilidadTurnosDto>> ObtenerDisponibilidad(
         [FromQuery] DateOnly fecha)
     {
         // Validamos que la fecha venga correctamente desde la query string.
@@ -30,6 +31,20 @@ public class TurnosController : ControllerBase
 
         // Devolvemos 200 OK con la lista de horarios disponibles y bloqueados.
         return Ok(turnosDisponibles);
+    }
+
+    // Endpoint para que el dueno vea las reservas que esperan aprobacion.
+    // Ejemplo de uso:
+    // GET /api/turnos/pendientes-confirmacion
+    [HttpGet("pendientes-confirmacion")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<IReadOnlyList<TurnoPendienteConfirmacionDto>>> ObtenerTurnosPendientesConfirmacion()
+    {
+        // El controller solo pide la lista al servicio.
+        // La logica de filtrar turnos pendientes queda dentro de ServicioTurnos.
+        var turnosPendientes = await _servicioTurnos.ObtenerTurnosPendientesConfirmacionAsync();
+
+        return Ok(turnosPendientes);
     }
 
     // Endpoint para crear una reserva.
@@ -54,6 +69,54 @@ public class TurnosController : ControllerBase
         {
             // Si el servicio detecta una regla de negocio invalida,
             // devolvemos 400 Bad Request con el mensaje.
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
+
+    // Endpoint para que el dueno confirme una reserva pendiente de aprobacion.
+    // Ejemplo de uso:
+    // POST /api/turnos/confirmar/1
+    [HttpPost("confirmar/{turnoId:int}")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<TurnoConfirmadoDto>> ConfirmarTurno(int turnoId)
+    {
+        try
+        {
+            // Delegamos la confirmacion al servicio.
+            // El servicio valida si el turno existe y si todavia espera aprobacion.
+            var turnoConfirmado = await _servicioTurnos.ConfirmarTurnoAsync(turnoId);
+
+            return Ok(turnoConfirmado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
+
+    // Endpoint para que el dueno rechace una reserva pendiente de aprobacion.
+    // Ejemplo de uso:
+    // POST /api/turnos/rechazar-pendiente/1
+    [HttpPost("rechazar-pendiente/{turnoId:int}")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<TurnoCanceladoDto>> RechazarTurnoPendiente(int turnoId)
+    {
+        try
+        {
+            // Delegamos la regla al servicio.
+            // El servicio valida que el turno exista y que todavia espere aprobacion.
+            var turnoCancelado = await _servicioTurnos.RechazarTurnoPendienteAsync(turnoId);
+
+            return Ok(turnoCancelado);
+        }
+        catch (InvalidOperationException ex)
+        {
             return BadRequest(new
             {
                 mensaje = ex.Message

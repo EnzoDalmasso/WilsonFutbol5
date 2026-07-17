@@ -15,5 +15,19 @@ public class TurnoReservadoDto
 
     public decimal PrecioTotal { get; set; }
 
+    public string AliasTransferencia { get; set; } = string.Empty;
+
+    public string NombreTitularTransferencia { get; set; } = string.Empty;
+
+    public string MensajePagoReserva { get; set; } = string.Empty;
+
+    public decimal MontoSena { get; set; }
+
+    public DateTime? FechaVencimientoReserva { get; set; }
+
+    public string EstadoTurno { get; set; } = string.Empty;
+
+    public string TextoEstado { get; set; } = string.Empty;
+
     public string TokenCancelacion { get; set; } = string.Empty;
 }

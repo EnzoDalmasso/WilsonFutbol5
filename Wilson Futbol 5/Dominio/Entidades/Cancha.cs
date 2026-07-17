@@ -13,4 +13,6 @@ public class Cancha
     public ICollection<HorarioAtencion> HorariosAtencion { get; set; } = new List<HorarioAtencion>();
 
     public ICollection<Turno> Turnos { get; set; } = new List<Turno>();
+
+    public ICollection<TurnoFijo> TurnosFijos { get; set; } = new List<TurnoFijo>();
 }
