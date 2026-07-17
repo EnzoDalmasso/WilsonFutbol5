@@ -2747,7 +2747,7 @@ function App() {
         )}
           </>
         )}
-        <footer className="fixed bottom-3 left-3 z-50 max-w-[calc(100vw-1.5rem)] rounded-xl border border-white/10 bg-[#061934]/95 px-4 py-3 text-left shadow-2xl shadow-black/30 backdrop-blur sm:bottom-5 sm:left-5 sm:max-w-none">
+        <footer className="mt-8 border-t border-white/10 py-6 text-left">
           <p className="text-[0.56rem] font-black uppercase tracking-[0.18em] text-white/60 sm:text-[0.68rem] sm:tracking-[0.28em]">
             © 2026 Wilson Futbol 5. Todos los derechos reservados.
           </p>
