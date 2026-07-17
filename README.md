@@ -69,6 +69,29 @@ Aplicar migraciones:
 dotnet ef database update --project "Wilson Futbol 5\Wilson Futbol 5.csproj" --startup-project "Wilson Futbol 5\Wilson Futbol 5.csproj"
 ```
 
+## Docker backend
+
+El backend puede publicarse como contenedor usando el `Dockerfile` de la raiz.
+
+Build local:
+
+```powershell
+docker build -t wilson-futbol5-api .
+```
+
+Run local:
+
+```powershell
+docker run --rm -p 8080:8080 `
+  -e ConnectionStrings__WilsonDb="connection-string-produccion-o-prueba" `
+  -e SeguridadAdmin__ClaveInicial="clave-inicial-admin" `
+  -e SeguridadAdmin__ClaveSoporte="clave-soporte-segura" `
+  -e Cors__OrigenesPermitidos__0="http://localhost:5173" `
+  wilson-futbol5-api
+```
+
+En Render u otro hosting con Docker, configurar las mismas variables de entorno.
+
 ## Checklist antes de publicar
 
 - Configurar `VITE_API_URL` en Vercel.
