@@ -725,6 +725,62 @@ public class ServicioTurnos : IServicioTurnos
         };
     }
 
+    public async Task<TurnoCanceladoDto> CancelarReservaEspecialAsync(int turnoId)
+    {
+        // Validamos que el id venga informado antes de buscar en la base.
+        if (turnoId <= 0)
+        {
+            throw new InvalidOperationException("El id del turno es obligatorio.");
+        }
+
+        var turno = await _contexto.Turnos
+            .FirstOrDefaultAsync(turno => turno.Id == turnoId);
+
+        if (turno is null)
+        {
+            throw new InvalidOperationException("No se encontro la reserva especial indicada.");
+        }
+
+        // Esta accion es solo para cumpleanos y eventos cargados por el dueno.
+        if (turno.TipoTurno != TipoTurno.Cumpleanios)
+        {
+            throw new InvalidOperationException("Solo se pueden cancelar reservas especiales desde esta accion.");
+        }
+
+        if (turno.EstadoTurno != EstadoTurno.Reservado)
+        {
+            throw new InvalidOperationException("La reserva especial ya no esta activa.");
+        }
+
+        var fechaActual = DateTime.Now;
+
+        // No borramos el turno: lo marcamos cancelado para liberar el horario y conservar historial.
+        turno.EstadoTurno = EstadoTurno.CanceladoPorDueno;
+        turno.FechaCancelacion = fechaActual;
+
+        var notificacionesPendientes = await _contexto.NotificacionesWhatsApp
+            .Where(notificacion =>
+                notificacion.TurnoId == turno.Id &&
+                notificacion.EstadoNotificacion == EstadoNotificacionWhatsApp.Pendiente)
+            .ToListAsync();
+
+        foreach (var notificacion in notificacionesPendientes)
+        {
+            notificacion.EstadoNotificacion = EstadoNotificacionWhatsApp.Cancelada;
+        }
+
+        await _contexto.SaveChangesAsync();
+
+        return new TurnoCanceladoDto
+        {
+            TurnoId = turno.Id,
+            FechaHoraInicio = turno.FechaHoraInicio,
+            FechaCancelacion = fechaActual,
+            EstadoTurno = turno.EstadoTurno.ToString(),
+            Mensaje = "Reserva especial cancelada correctamente. El horario vuelve a estar disponible."
+        };
+    }
+
     public async Task<TurnoConfirmadoDto> ConfirmarTurnoAsync(int turnoId)
     {
         // Validamos que el id sea valido antes de buscar en la base.

@@ -114,6 +114,29 @@ public class TurnosController : ControllerBase
         }
     }
 
+    // Endpoint para que el dueno cancele un cumpleanos o evento cargado.
+    // Ejemplo de uso:
+    // POST /api/turnos/reservas-especiales/1/cancelar
+    [HttpPost("reservas-especiales/{turnoId:int}/cancelar")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<TurnoCanceladoDto>> CancelarReservaEspecial(int turnoId)
+    {
+        try
+        {
+            // Marcamos la reserva como cancelada para liberar el horario sin borrar historial.
+            var turnoCancelado = await _servicioTurnos.CancelarReservaEspecialAsync(turnoId);
+
+            return Ok(turnoCancelado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
+
     // Endpoint para que el dueno confirme una reserva pendiente de aprobacion.
     // Ejemplo de uso:
     // POST /api/turnos/confirmar/1

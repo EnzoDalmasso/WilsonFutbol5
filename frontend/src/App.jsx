@@ -248,6 +248,7 @@ function App() {
   const [reservasEspeciales, setReservasEspeciales] = useState([])
   const [cargandoReservasEspeciales, setCargandoReservasEspeciales] = useState(false)
   const [creandoReservaEspecial, setCreandoReservaEspecial] = useState(false)
+  const [cancelandoReservaEspecialId, setCancelandoReservaEspecialId] = useState(null)
   const [errorReservaEspecial, setErrorReservaEspecial] = useState('')
   const [mensajeReservaEspecial, setMensajeReservaEspecial] = useState('')
   const [datosReservaEspecial, setDatosReservaEspecial] = useState(
@@ -787,6 +788,41 @@ function App() {
       setErrorReservaEspecial(errorActual.message)
     } finally {
       setCreandoReservaEspecial(false)
+    }
+  }
+
+  async function cancelarReservaEspecial(turnoId) {
+    const confirmarCancelacion = window.confirm(
+      '¿Seguro que querés cancelar esta reserva especial? El horario volverá a quedar disponible.',
+    )
+
+    if (!confirmarCancelacion) {
+      return
+    }
+
+    setErrorReservaEspecial('')
+    setMensajeReservaEspecial('')
+    setCancelandoReservaEspecialId(turnoId)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos/reservas-especiales/${turnoId}/cancelar`, {
+        headers: obtenerHeadersAdmin(),
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeReservaEspecial('Reserva especial cancelada correctamente.')
+
+      // Refrescamos la lista y la disponibilidad porque ese bloque vuelve a quedar libre.
+      await obtenerReservasEspeciales()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorReservaEspecial(errorActual.message)
+    } finally {
+      setCancelandoReservaEspecialId(null)
     }
   }
 
@@ -1749,6 +1785,17 @@ function App() {
                     </div>
                   )}
                 </dl>
+
+                <button
+                  className="mt-4 rounded-xl border border-[#9a3d2d] bg-white px-3 py-2 text-sm font-black text-[#9a3d2d] transition hover:bg-[#fff5f2] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={cancelandoReservaEspecialId === reservaEspecial.turnoId}
+                  onClick={() => cancelarReservaEspecial(reservaEspecial.turnoId)}
+                  type="button"
+                >
+                  {cancelandoReservaEspecialId === reservaEspecial.turnoId
+                    ? 'Cancelando...'
+                    : 'Cancelar reserva especial'}
+                </button>
               </article>
             ))}
           </div>
@@ -2700,14 +2747,14 @@ function App() {
         )}
           </>
         )}
-        <footer className="mt-4 border-t border-white/10 py-5 text-left">
-          <p className="text-[0.68rem] font-black uppercase tracking-[0.28em] text-white/60">
+        <footer className="fixed bottom-3 left-3 z-50 max-w-[calc(100vw-1.5rem)] rounded-xl border border-white/10 bg-[#061934]/95 px-4 py-3 text-left shadow-2xl shadow-black/30 backdrop-blur sm:bottom-5 sm:left-5 sm:max-w-none">
+          <p className="text-[0.56rem] font-black uppercase tracking-[0.18em] text-white/60 sm:text-[0.68rem] sm:tracking-[0.28em]">
             © 2026 Wilson Futbol 5. Todos los derechos reservados.
           </p>
-          <p className="mt-5 text-[0.68rem] font-black uppercase tracking-[0.28em] text-[#d6a72b]">
+          <p className="mt-3 text-[0.56rem] font-black uppercase tracking-[0.18em] text-white/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.28em]">
             Desarrollado por
           </p>
-          <p className="mt-2 text-sm font-black uppercase tracking-[0.25em] text-white">
+          <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-white sm:mt-2 sm:text-sm sm:tracking-[0.25em]">
             Enzo Dalmasso
           </p>
         </footer>

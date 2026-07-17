@@ -4,6 +4,7 @@
 @TurnoIdReservado = 1015
 @TokenCancelacion = d00dbde5793141e1b0e2371b6cd984ca
 @TurnoFijoId = 1
+@ReservaEspecialId = 1
 @ExcepcionHorarioId = 2
 @HorarioAtencionId = 4
 @ClaveAdmin = completar-clave-admin-local
@@ -160,6 +161,15 @@ X-Admin-Token: {{AdminToken}}
 # Consultar reservas especiales.
 # Muestra cumpleanos y eventos cargados por el dueno.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservas-especiales
+Accept: application/json
+X-Admin-Token: {{AdminToken}}
+
+###
+
+# Cancelar reserva especial.
+# Primero ejecuta "Consultar reservas especiales", copia el valor de turnoId
+# y pegalo en la variable @ReservaEspecialId de arriba.
+POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservas-especiales/{{ReservaEspecialId}}/cancelar
 Accept: application/json
 X-Admin-Token: {{AdminToken}}
 

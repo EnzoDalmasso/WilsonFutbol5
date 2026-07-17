@@ -21,6 +21,9 @@ public interface IServicioTurnos
     // Crea una reserva especial cargada por el dueño, por ejemplo cumpleaños o eventos.
     Task<TurnoReservadoDto> CrearReservaEspecialAsync(CrearReservaEspecialDto dto);
 
+    // Cancela una reserva especial para liberar el horario sin borrar el historial.
+    Task<TurnoCanceladoDto> CancelarReservaEspecialAsync(int turnoId);
+
     Task<TurnoConfirmadoDto> ConfirmarTurnoAsync(int turnoId);
 
     // Permite que el dueno rechace una reserva pendiente si la sena no fue acreditada.
