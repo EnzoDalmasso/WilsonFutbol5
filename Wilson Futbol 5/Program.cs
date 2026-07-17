@@ -1,4 +1,4 @@
-
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Wilson_Futbol_5.Aplicacion.Interfaces;
 using Wilson_Futbol_5.Aplicacion.Servicios;
@@ -11,8 +11,18 @@ namespace Wilson_Futbol_5
     {
         public static void Main(string[] args)
         {
+
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
+            {
+                opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                opciones.KnownProxies.Clear();
+            });
+
+            // Add services to the container.
+
+            builder.Services.AddControllers();
             // Add services to the container.
 
             builder.Services.AddControllers();
@@ -47,12 +57,13 @@ namespace Wilson_Futbol_5
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
-            // Registramos el DbContext con SQL Server para que EF Core pueda acceder a la base de datos.
+            // Leemos la cadena de conexion que usara EF Core para conectarse a PostgreSQL/Supabase.
             var cadenaConexion = builder.Configuration.GetConnectionString("WilsonDb")
                 ?? throw new InvalidOperationException("No se encontro la cadena de conexion 'WilsonDb'.");
 
+            // Registramos el DbContext con PostgreSQL para que EF Core pueda acceder a Supabase.
             builder.Services.AddDbContext<WilsonDbContext>(opciones =>
-                opciones.UseSqlServer(cadenaConexion));
+                opciones.UseNpgsql(cadenaConexion));
 
             var app = builder.Build();
 
@@ -61,6 +72,8 @@ namespace Wilson_Futbol_5
             {
                 app.MapOpenApi();
             }
+
+            app.UseForwardedHeaders();
 
             app.UseHttpsRedirection();
 

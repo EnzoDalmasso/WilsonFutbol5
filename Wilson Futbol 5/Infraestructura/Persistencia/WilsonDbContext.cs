@@ -1,11 +1,36 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Wilson_Futbol_5.Dominio.Entidades;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Wilson_Futbol_5.Infraestructura.Persistencia;
 
+public class DateTimeSinZonaHorariaConverter : ValueConverter<DateTime, DateTime>
+{
+    public DateTimeSinZonaHorariaConverter()
+        : base(
+            fecha => DateTime.SpecifyKind(fecha, DateTimeKind.Unspecified),
+            fecha => DateTime.SpecifyKind(fecha, DateTimeKind.Unspecified))
+    {
+    }
+}
 
-// Punto de entrada de EF Core hacia SQL Server. Aca se declaran las tablas y las reglas
+public class DateTimeNullableSinZonaHorariaConverter : ValueConverter<DateTime?, DateTime?>
+{
+    public DateTimeNullableSinZonaHorariaConverter()
+        : base(
+            fecha => fecha.HasValue
+                ? DateTime.SpecifyKind(fecha.Value, DateTimeKind.Unspecified)
+                : fecha,
+            fecha => fecha.HasValue
+                ? DateTime.SpecifyKind(fecha.Value, DateTimeKind.Unspecified)
+                : fecha)
+    {
+    }
+}
+
+
+// Punto de entrada de EF Core hacia PostgreSQL. Aca se declaran las tablas y las reglas
 // de mapeo para que el modelo de dominio se guarde de forma consistente.
 
 public class WilsonDbContext : DbContext
@@ -36,6 +61,18 @@ public class WilsonDbContext : DbContext
     public DbSet<CredencialAdmin> CredencialesAdmin => Set<CredencialAdmin>();
 
     public DbSet<SesionAdmin> SesionesAdmin => Set<SesionAdmin>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>()
+            .HaveConversion<DateTimeSinZonaHorariaConverter>()
+            .HaveColumnType("timestamp without time zone");
+
+        configurationBuilder.Properties<DateTime?>()
+            .HaveConversion<DateTimeNullableSinZonaHorariaConverter>()
+            .HaveColumnType("timestamp without time zone");
+    }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -297,7 +334,7 @@ public class WilsonDbContext : DbContext
             AliasTransferencia = "wilson.futbol5",
             NombreTitularTransferencia = "Wilson Futbol 5",
             MensajePagoReserva = "Para confirmar la reserva, transferi la seña y envia el comprobante al dueño.",
-            FechaActualizacion = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            FechaActualizacion = new DateTime(2026, 1, 1, 0, 0, 0)
 
         });
     }
