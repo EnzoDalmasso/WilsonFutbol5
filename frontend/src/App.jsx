@@ -232,6 +232,8 @@ function App() {
   const [cargandoPendientes, setCargandoPendientes] = useState(false)
   const [errorAdmin, setErrorAdmin] = useState('')
   const [mensajeAdmin, setMensajeAdmin] = useState('')
+  const [mostrarConfiguracionAdmin, setMostrarConfiguracionAdmin] = useState(false)
+  const [panelAdminActivo, setPanelAdminActivo] = useState(null)
 
   // Guardamos los turnos fijos que ya tiene cargados el dueno.
   const [turnosFijos, setTurnosFijos] = useState([])
@@ -1109,13 +1111,22 @@ function App() {
             {modoDueno ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-bold text-[#d6a72b]">Modo dueño activo</p>
-                <button
-                  className="w-fit rounded-xl border border-white/20 bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff]"
-                  onClick={salirModoDueno}
-                  type="button"
-                >
-                  Salir
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="w-fit rounded-xl border border-[#d6a72b] bg-transparent px-4 py-2 text-sm font-black text-[#d6a72b] transition hover:bg-[#d6a72b] hover:text-[#061934]"
+                    onClick={() => setMostrarConfiguracionAdmin((valorActual) => !valorActual)}
+                    type="button"
+                  >
+                    Configuraciones
+                  </button>
+                  <button
+                    className="w-fit rounded-xl border border-white/20 bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff]"
+                    onClick={salirModoDueno}
+                    type="button"
+                  >
+                    Salir
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -1398,7 +1409,8 @@ function App() {
 
         {esRutaAdmin && modoDueno && (
           <>
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        {mostrarConfiguracionAdmin && (
+        <section className="order-[1] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div>
             <p className="text-sm font-bold uppercase text-[#d6a72b]">
               Panel del dueño
@@ -1482,8 +1494,10 @@ function App() {
             </button>
           </form>
         </section>
+        )}
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        {panelAdminActivo === 'reservasEspeciales' && (
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div>
             <p className="text-sm font-bold uppercase text-[#d6a72b]">
               Panel del dueño
@@ -1642,8 +1656,10 @@ function App() {
             </button>
           </form>
         </section>
+        )}
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        {panelAdminActivo === 'configuracion' && (
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -1797,8 +1813,9 @@ function App() {
             </form>
           )}
         </section>
+        )}
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[2] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -1938,7 +1955,40 @@ function App() {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[3] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <p className="text-sm font-bold uppercase text-[#d6a72b]">
+            Administración
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              { clave: 'horarios', texto: 'Horarios de atención' },
+              { clave: 'configuracion', texto: 'Configuración del negocio' },
+              { clave: 'turnosFijos', texto: 'Turnos fijos' },
+              { clave: 'excepciones', texto: 'Feriados y excepciones' },
+              { clave: 'reservasEspeciales', texto: 'Cumpleaños y reservas especiales' },
+            ].map((panel) => (
+              <button
+                className={`rounded-xl border px-4 py-3 text-sm font-black transition ${
+                  panelAdminActivo === panel.clave
+                    ? 'border-[#0b2f63] bg-[#0b2f63] text-white'
+                    : 'border-[#d6dce5] bg-[#f8fafc] text-[#0b2f63] hover:border-[#d6a72b]'
+                }`}
+                key={panel.clave}
+                onClick={() =>
+                  setPanelAdminActivo((panelActual) =>
+                    panelActual === panel.clave ? null : panel.clave,
+                  )
+                }
+                type="button"
+              >
+                {panel.texto}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {panelAdminActivo === 'horarios' && (
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2076,8 +2126,10 @@ function App() {
             ))}
           </div>
         </section>
+        )}
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        {panelAdminActivo === 'turnosFijos' && (
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2323,8 +2375,10 @@ function App() {
             ))}
           </div>
         </section>
+        )}
 
-        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        {panelAdminActivo === 'excepciones' && (
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2546,6 +2600,7 @@ function App() {
             ))}
           </div>
         </section>
+        )}
           </>
         )}
       </section>
