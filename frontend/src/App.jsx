@@ -245,6 +245,8 @@ function App() {
   const [datosTurnoFijo, setDatosTurnoFijo] = useState(obtenerDatosTurnoFijoIniciales)
 
   // Guardamos los datos del formulario de cumpleaños y reservas especiales.
+  const [reservasEspeciales, setReservasEspeciales] = useState([])
+  const [cargandoReservasEspeciales, setCargandoReservasEspeciales] = useState(false)
   const [creandoReservaEspecial, setCreandoReservaEspecial] = useState(false)
   const [errorReservaEspecial, setErrorReservaEspecial] = useState('')
   const [mensajeReservaEspecial, setMensajeReservaEspecial] = useState('')
@@ -326,6 +328,29 @@ function App() {
       setErrorAdmin(errorActual.message)
     } finally {
       setCargandoPendientes(false)
+    }
+  }
+
+  async function obtenerReservasEspeciales() {
+    setCargandoReservasEspeciales(true)
+    setErrorReservaEspecial('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos/reservas-especiales`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener las reservas especiales.')
+      }
+
+      const datos = await respuesta.json()
+      setReservasEspeciales(datos)
+    } catch (errorActual) {
+      setReservasEspeciales([])
+      setErrorReservaEspecial(errorActual.message)
+    } finally {
+      setCargandoReservasEspeciales(false)
     }
   }
 
@@ -530,6 +555,15 @@ function App() {
     }
 
     obtenerTurnosFijos()
+  }, [modoDueno])
+
+  // Al cargar la pantalla, traemos los cumpleanos y reservas especiales ya cargadas.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerReservasEspeciales()
   }, [modoDueno])
 
   // Al cargar la pantalla, traemos feriados, vacaciones y dias especiales.
@@ -746,6 +780,7 @@ function App() {
       setDatosReservaEspecial(obtenerDatosReservaEspecialIniciales())
 
       // Refrescamos la agenda para que el bloqueo se vea al instante.
+      await obtenerReservasEspeciales()
       await obtenerTurnosPendientesConfirmacion()
       await obtenerDisponibilidad(fechaSeleccionada)
     } catch (errorActual) {
@@ -1507,6 +1542,15 @@ function App() {
             </h2>
           </div>
 
+          <button
+            className="mt-4 rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={cargandoReservasEspeciales}
+            onClick={obtenerReservasEspeciales}
+            type="button"
+          >
+            {cargandoReservasEspeciales ? 'Actualizando...' : 'Actualizar'}
+          </button>
+
           <form
             className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
             onSubmit={crearReservaEspecial}
@@ -1655,6 +1699,59 @@ function App() {
               {creandoReservaEspecial ? 'Creando...' : 'Crear reserva especial'}
             </button>
           </form>
+
+          {!cargandoReservasEspeciales && reservasEspeciales.length === 0 && (
+            <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
+              No hay reservas especiales cargadas.
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {reservasEspeciales.map((reservaEspecial) => (
+              <article
+                className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                key={reservaEspecial.turnoId}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      Cumpleaños
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                      {reservaEspecial.nombreCliente}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-[#566273]">
+                      {reservaEspecial.telefonoCliente}
+                    </p>
+                  </div>
+
+                  <span className="inline-flex w-fit rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-black text-[#0b2f63]">
+                    Reservado
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Horario</dt>
+                    <dd>
+                      {formatearHora(reservaEspecial.fechaHoraInicio)} a{' '}
+                      {formatearHora(reservaEspecial.fechaHoraFin)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Fecha</dt>
+                    <dd>{formatearFecha(reservaEspecial.fechaHoraInicio)}</dd>
+                  </div>
+                  {reservaEspecial.observacion && (
+                    <div>
+                      <dt className="font-bold text-[#0b2f63]">Observación</dt>
+                      <dd>{reservaEspecial.observacion}</dd>
+                    </div>
+                  )}
+                </dl>
+              </article>
+            ))}
+          </div>
         </section>
         )}
 
@@ -2603,6 +2700,17 @@ function App() {
         )}
           </>
         )}
+        <footer className="mt-4 border-t border-white/10 py-5 text-left">
+          <p className="text-[0.68rem] font-black uppercase tracking-[0.28em] text-white/60">
+            © 2026 Wilson Futbol 5. Todos los derechos reservados.
+          </p>
+          <p className="mt-5 text-[0.68rem] font-black uppercase tracking-[0.28em] text-[#d6a72b]">
+            Desarrollado por
+          </p>
+          <p className="mt-2 text-sm font-black uppercase tracking-[0.25em] text-white">
+            Enzo Dalmasso
+          </p>
+        </footer>
       </section>
     </main>
   )

@@ -157,6 +157,14 @@ X-Admin-Token: {{AdminToken}}
 
 ###
 
+# Consultar reservas especiales.
+# Muestra cumpleanos y eventos cargados por el dueno.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservas-especiales
+Accept: application/json
+X-Admin-Token: {{AdminToken}}
+
+###
+
 # Rechazar reserva pendiente de aprobacion.
 # Primero ejecuta "Reserva valida", copia el valor de turnoId de la respuesta
 # y pegalo en la variable @TurnoIdReservado de arriba.

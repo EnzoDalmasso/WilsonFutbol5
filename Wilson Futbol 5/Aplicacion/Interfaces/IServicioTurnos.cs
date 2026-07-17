@@ -13,6 +13,9 @@ public interface IServicioTurnos
     // Devuelve los turnos que estan esperando que el dueno confirme la sena.
     Task<IReadOnlyList<TurnoPendienteConfirmacionDto>> ObtenerTurnosPendientesConfirmacionAsync();
 
+    // Devuelve las reservas especiales ya cargadas por el dueno, como cumpleanos o eventos.
+    Task<IReadOnlyList<ReservaEspecialDto>> ObtenerReservasEspecialesAsync();
+
     Task<TurnoReservadoDto> ReservarTurnoAsync(ReservarTurnoDto dto);
 
     // Crea una reserva especial cargada por el dueño, por ejemplo cumpleaños o eventos.

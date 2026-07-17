@@ -48,6 +48,35 @@ public class ServicioTurnos : IServicioTurnos
         return turnosPendientes;
     }
 
+    public async Task<IReadOnlyList<ReservaEspecialDto>> ObtenerReservasEspecialesAsync()
+    {
+        var fechaActual = DateTime.Now.Date;
+
+        // Las reservas especiales se guardan como turnos de tipo Cumpleanios.
+        // Filtramos desde hoy para que el panel muestre lo que todavia sirve operar.
+        var reservasEspeciales = await _contexto.Turnos
+            .AsNoTracking()
+            .Where(turno =>
+                turno.TipoTurno == TipoTurno.Cumpleanios &&
+                turno.EstadoTurno == EstadoTurno.Reservado &&
+                turno.FechaHoraInicio >= fechaActual)
+            .OrderBy(turno => turno.FechaHoraInicio)
+            .Select(turno => new ReservaEspecialDto
+            {
+                TurnoId = turno.Id,
+                NombreCliente = $"{turno.Cliente.Nombre} {turno.Cliente.Apellido}",
+                TelefonoCliente = turno.Cliente.TelefonoCliente,
+                FechaHoraInicio = turno.FechaHoraInicio,
+                FechaHoraFin = turno.FechaHoraFin,
+                PrecioTotal = turno.PrecioTotal,
+                Observacion = turno.MotivoCancelacion,
+                TextoEstado = "Reserva especial"
+            })
+            .ToListAsync();
+
+        return reservasEspeciales;
+    }
+
     // Calcula los horarios disponibles de una fecha puntual.
     // No guarda datos: solo consulta la configuracion, los horarios de atencion y los turnos ya reservados.
     public async Task<DisponibilidadTurnosDto> ObtenerDisponibilidadPorFechaAsync(DateOnly fecha)

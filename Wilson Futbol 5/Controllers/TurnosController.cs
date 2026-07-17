@@ -47,6 +47,19 @@ public class TurnosController : ControllerBase
         return Ok(turnosPendientes);
     }
 
+    // Endpoint para que el dueno vea los cumpleanos y reservas especiales cargadas.
+    // Ejemplo de uso:
+    // GET /api/turnos/reservas-especiales
+    [HttpGet("reservas-especiales")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<IReadOnlyList<ReservaEspecialDto>>> ObtenerReservasEspeciales()
+    {
+        // La consulta queda dentro del servicio para que el controller siga siendo liviano.
+        var reservasEspeciales = await _servicioTurnos.ObtenerReservasEspecialesAsync();
+
+        return Ok(reservasEspeciales);
+    }
+
     // Endpoint para crear una reserva.
     // Ejemplo de uso:
     // POST /api/turnos/reservar
