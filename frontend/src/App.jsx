@@ -1106,6 +1106,7 @@ function App() {
                 className="mt-2 w-full rounded-xl border border-white/15 bg-white px-3 py-3 text-sm font-semibold text-[#061934] outline-none focus:border-[#d6a72b]"
                 id="fecha"
                 onChange={cambiarFecha}
+                min={obtenerFechaHoy()}
                 type="date"
                 value={fechaSeleccionada}
               />

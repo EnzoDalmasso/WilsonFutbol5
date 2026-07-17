@@ -247,6 +247,8 @@ public class ServicioTurnos : IServicioTurnos
 
     public async Task<TurnoReservadoDto> ReservarTurnoAsync(ReservarTurnoDto dto)
     {
+       
+
         // Validamos datos basicos que no conviene dejar pasar al flujo de reserva.
         // Aunque el DTO tenga atributos de validacion, esta capa protege la logica de negocio.
         if (string.IsNullOrWhiteSpace(dto.Nombre))
