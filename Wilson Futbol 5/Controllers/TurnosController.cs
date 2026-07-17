@@ -76,6 +76,31 @@ public class TurnosController : ControllerBase
         }
     }
 
+    // Endpoint para que el dueño cargue una reserva especial, como cumpleaños o eventos.
+    // Ejemplo de uso:
+    // POST /api/turnos/reserva-especial
+    [HttpPost("reserva-especial")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<TurnoReservadoDto>> CrearReservaEspecial([FromBody] CrearReservaEspecialDto dto)
+    {
+        try
+        {
+            var turnoReservado = await _servicioTurnos.CrearReservaEspecialAsync(dto);
+
+            return CreatedAtAction(
+                nameof(ObtenerDisponibilidad),
+                new { fecha = DateOnly.FromDateTime(turnoReservado.FechaHoraInicio) },
+                turnoReservado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
+
     // Endpoint para que el dueno confirme una reserva pendiente de aprobacion.
     // Ejemplo de uso:
     // POST /api/turnos/confirmar/1

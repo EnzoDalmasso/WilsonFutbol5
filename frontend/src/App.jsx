@@ -53,6 +53,18 @@ function obtenerDatosTurnoFijoIniciales() {
   }
 }
 
+function obtenerDatosReservaEspecialIniciales() {
+  return {
+    apellido: '',
+    fecha: obtenerFechaHoy(),
+    horaFin: '15:00',
+    horaInicio: '12:00',
+    nombre: '',
+    observacion: '',
+    telefonoCliente: '',
+  }
+}
+
 function obtenerDatosExcepcionHorarioIniciales() {
   return {
     fechaDesde: obtenerFechaHoy(),
@@ -100,6 +112,10 @@ function formatearHoraSimple(hora) {
 
 function normalizarHoraParaApi(hora) {
   return hora.length === 5 ? `${hora}:00` : hora
+}
+
+function crearFechaHoraLocal(fecha, hora) {
+  return `${fecha}T${hora}`
 }
 
 function obtenerTokenAdmin() {
@@ -225,6 +241,14 @@ function App() {
   const [errorTurnosFijos, setErrorTurnosFijos] = useState('')
   const [mensajeTurnosFijos, setMensajeTurnosFijos] = useState('')
   const [datosTurnoFijo, setDatosTurnoFijo] = useState(obtenerDatosTurnoFijoIniciales)
+
+  // Guardamos los datos del formulario de cumpleaños y reservas especiales.
+  const [creandoReservaEspecial, setCreandoReservaEspecial] = useState(false)
+  const [errorReservaEspecial, setErrorReservaEspecial] = useState('')
+  const [mensajeReservaEspecial, setMensajeReservaEspecial] = useState('')
+  const [datosReservaEspecial, setDatosReservaEspecial] = useState(
+    obtenerDatosReservaEspecialIniciales,
+  )
 
   // Guardamos feriados, vacaciones y dias especiales cargados por el dueno.
   const [excepcionesHorario, setExcepcionesHorario] = useState([])
@@ -564,6 +588,15 @@ function App() {
     }))
   }
 
+  function cambiarDatoReservaEspecial(evento) {
+    const { name, value } = evento.target
+
+    setDatosReservaEspecial((datosActuales) => ({
+      ...datosActuales,
+      [name]: value,
+    }))
+  }
+
   function cambiarDatoExcepcionHorario(evento) {
     const { name, value } = evento.target
 
@@ -672,6 +705,51 @@ function App() {
       setErrorTurnosFijos(errorActual.message)
     } finally {
       setDesactivandoTurnoFijoId(null)
+    }
+  }
+
+  async function crearReservaEspecial(evento) {
+    evento.preventDefault()
+    setErrorReservaEspecial('')
+    setMensajeReservaEspecial('')
+
+    if (datosReservaEspecial.horaFin <= datosReservaEspecial.horaInicio) {
+      setErrorReservaEspecial('La hora de fin debe ser posterior a la hora de inicio.')
+      return
+    }
+
+    setCreandoReservaEspecial(true)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos/reserva-especial`, {
+        body: JSON.stringify({
+          apellido: datosReservaEspecial.apellido,
+          fechaHoraFin: crearFechaHoraLocal(datosReservaEspecial.fecha, datosReservaEspecial.horaFin),
+          fechaHoraInicio: crearFechaHoraLocal(datosReservaEspecial.fecha, datosReservaEspecial.horaInicio),
+          nombre: datosReservaEspecial.nombre,
+          observacion: datosReservaEspecial.observacion,
+          telefonoCliente: datosReservaEspecial.telefonoCliente,
+        }),
+        headers: {
+          ...obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        },
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      setMensajeReservaEspecial('Reserva especial creada correctamente.')
+      setDatosReservaEspecial(obtenerDatosReservaEspecialIniciales())
+
+      // Refrescamos la agenda para que el bloqueo se vea al instante.
+      await obtenerTurnosPendientesConfirmacion()
+      await obtenerDisponibilidad(fechaSeleccionada)
+    } catch (errorActual) {
+      setErrorReservaEspecial(errorActual.message)
+    } finally {
+      setCreandoReservaEspecial(false)
     }
   }
 
@@ -1308,7 +1386,7 @@ function App() {
                           : 'bg-white text-[#7c8797]'
                       }`}
                     >
-                      {horario.disponible ? 'Disponible' : 'Reservado'}
+                      {horario.disponible ? 'Disponible' : horario.textoEstado ?? 'Reservado'}
                     </span>
                   </button>
                 )
@@ -1401,6 +1479,166 @@ function App() {
               type="submit"
             >
               {cambiandoClaveAdmin ? 'Guardando...' : 'Cambiar contraseña'}
+            </button>
+          </form>
+        </section>
+
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div>
+            <p className="text-sm font-bold uppercase text-[#d6a72b]">
+              Panel del dueÃ±o
+            </p>
+            <h2 className="text-2xl font-black text-[#0b2f63]">
+              CumpleaÃ±os y reservas especiales
+            </h2>
+          </div>
+
+          <form
+            className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+            onSubmit={crearReservaEspecial}
+          >
+            <p className="text-sm font-black uppercase text-[#d6a72b]">
+              Nueva reserva especial
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialNombre">
+                  Nombre
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialNombre"
+                  maxLength={80}
+                  name="nombre"
+                  onChange={cambiarDatoReservaEspecial}
+                  required
+                  type="text"
+                  value={datosReservaEspecial.nombre}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialApellido">
+                  Apellido
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialApellido"
+                  maxLength={80}
+                  name="apellido"
+                  onChange={cambiarDatoReservaEspecial}
+                  required
+                  type="text"
+                  value={datosReservaEspecial.apellido}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialTelefono">
+                  TelÃ©fono
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialTelefono"
+                  maxLength={20}
+                  name="telefonoCliente"
+                  onChange={cambiarDatoReservaEspecial}
+                  placeholder="+549..."
+                  required
+                  type="tel"
+                  value={datosReservaEspecial.telefonoCliente}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialFecha">
+                  Fecha
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialFecha"
+                  min={obtenerFechaHoy()}
+                  name="fecha"
+                  onChange={cambiarDatoReservaEspecial}
+                  required
+                  type="date"
+                  value={datosReservaEspecial.fecha}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialHoraInicio">
+                  Inicio
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialHoraInicio"
+                  name="horaInicio"
+                  onChange={cambiarDatoReservaEspecial}
+                  value={datosReservaEspecial.horaInicio}
+                >
+                  {opcionesHorasTurnoFijo.map((hora) => (
+                    <option key={hora} value={hora}>
+                      {hora}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialHoraFin">
+                  Fin
+                </label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="reservaEspecialHoraFin"
+                  name="horaFin"
+                  onChange={cambiarDatoReservaEspecial}
+                  value={datosReservaEspecial.horaFin}
+                >
+                  {opcionesHorasTurnoFijo.map((hora) => (
+                    <option key={hora} value={hora}>
+                      {hora}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="text-sm font-bold text-[#0b2f63]" htmlFor="reservaEspecialObservacion">
+                ObservaciÃ³n
+              </label>
+              <textarea
+                className="mt-1 min-h-20 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                id="reservaEspecialObservacion"
+                maxLength={250}
+                name="observacion"
+                onChange={cambiarDatoReservaEspecial}
+                placeholder="CumpleaÃ±os, evento familiar, pago en efectivo..."
+                value={datosReservaEspecial.observacion}
+              />
+            </div>
+
+            {mensajeReservaEspecial && (
+              <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+                {mensajeReservaEspecial}
+              </p>
+            )}
+
+            {errorReservaEspecial && (
+              <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+                {errorReservaEspecial}
+              </p>
+            )}
+
+            <button
+              className="mt-4 rounded-xl bg-[#0b2f63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={creandoReservaEspecial}
+              type="submit"
+            >
+              {creandoReservaEspecial ? 'Creando...' : 'Crear reserva especial'}
             </button>
           </form>
         </section>

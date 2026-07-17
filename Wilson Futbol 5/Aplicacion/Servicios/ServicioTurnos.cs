@@ -210,7 +210,9 @@ public class ServicioTurnos : IServicioTurnos
             if (turnoQueBloquea?.EstadoTurno == EstadoTurno.Reservado)
             {
                 estado = EstadoTurno.Reservado.ToString();
-                textoEstado = "Reservado";
+                textoEstado = turnoQueBloquea.TipoTurno == TipoTurno.Cumpleanios
+                    ? "Cumpleaños"
+                    : "Reservado";
             }
 
             if (turnoFijoQueBloquea is not null)
@@ -553,6 +555,144 @@ public class ServicioTurnos : IServicioTurnos
             FechaCancelacion = fechaActual,
             EstadoTurno = turno.EstadoTurno.ToString(),
             Mensaje = "Turno cancelado correctamente. El horario vuelve a estar disponible."
+        };
+    }
+
+    public async Task<TurnoReservadoDto> CrearReservaEspecialAsync(CrearReservaEspecialDto dto)
+    {
+        // Validamos los datos principales porque esta reserva la carga el dueño manualmente.
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+        {
+            throw new InvalidOperationException("El nombre es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Apellido))
+        {
+            throw new InvalidOperationException("El apellido es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.TelefonoCliente))
+        {
+            throw new InvalidOperationException("El telefono es obligatorio.");
+        }
+
+        if (dto.FechaHoraInicio == default || dto.FechaHoraFin == default)
+        {
+            throw new InvalidOperationException("La fecha y hora de inicio y fin son obligatorias.");
+        }
+
+        if (dto.FechaHoraInicio <= DateTime.Now)
+        {
+            throw new InvalidOperationException("No se puede crear una reserva especial en una fecha pasada.");
+        }
+
+        if (dto.FechaHoraFin <= dto.FechaHoraInicio)
+        {
+            throw new InvalidOperationException("La hora de fin debe ser posterior a la hora de inicio.");
+        }
+
+        var configuracion = await _contexto.ConfiguracionesNegocio.FirstAsync();
+
+        var cancha = await _contexto.Canchas.FirstAsync(cancha => cancha.Activa);
+
+        var fechaTurno = DateOnly.FromDateTime(dto.FechaHoraInicio);
+        var fechaFin = DateOnly.FromDateTime(dto.FechaHoraFin);
+
+        if (fechaTurno != fechaFin)
+        {
+            throw new InvalidOperationException("La reserva especial debe iniciar y terminar en el mismo dia.");
+        }
+
+        // Revisamos que no se pise con reservas normales, cumpleaños u otros turnos pendientes.
+        var existeTurnoOcupado = await _contexto.Turnos.AnyAsync(turno =>
+            turno.CanchaId == cancha.Id &&
+            dto.FechaHoraInicio < turno.FechaHoraFin &&
+            dto.FechaHoraFin > turno.FechaHoraInicio &&
+            (
+                turno.EstadoTurno == EstadoTurno.Reservado ||
+                turno.EstadoTurno == EstadoTurno.EnEsperaDePago
+            ));
+
+        if (existeTurnoOcupado)
+        {
+            throw new InvalidOperationException("La reserva especial se superpone con otro turno.");
+        }
+
+        var turnosFijosDelDia = await _contexto.TurnosFijos
+            .AsNoTracking()
+            .Where(turnoFijo =>
+                turnoFijo.CanchaId == cancha.Id &&
+                turnoFijo.Activo &&
+                turnoFijo.DiaSemana == dto.FechaHoraInicio.DayOfWeek &&
+                turnoFijo.FechaDesde <= fechaTurno &&
+                (
+                    turnoFijo.FechaHasta == null ||
+                    turnoFijo.FechaHasta >= fechaTurno
+                ))
+            .ToListAsync();
+
+        var existeTurnoFijoOcupado = turnosFijosDelDia.Any(turnoFijo =>
+        {
+            var inicioTurnoFijo = fechaTurno.ToDateTime(turnoFijo.HoraInicio);
+            var finTurnoFijo = fechaTurno.ToDateTime(turnoFijo.HoraFin);
+
+            return dto.FechaHoraInicio < finTurnoFijo &&
+                dto.FechaHoraFin > inicioTurnoFijo;
+        });
+
+        if (existeTurnoFijoOcupado)
+        {
+            throw new InvalidOperationException("La reserva especial se superpone con un turno fijo.");
+        }
+
+        // Creamos el cliente asociado a la reserva especial.
+        var cliente = new Cliente
+        {
+            Nombre = dto.Nombre.Trim(),
+            Apellido = dto.Apellido.Trim(),
+            TelefonoCliente = dto.TelefonoCliente.Trim()
+        };
+
+        var duracionHoras = (decimal)(dto.FechaHoraFin - dto.FechaHoraInicio).TotalHours;
+        var precioTotal = configuracion.PrecioPorPersona * configuracion.CantidadJugadoresPorTurno * duracionHoras;
+
+        var turno = new Turno
+        {
+            CanchaId = cancha.Id,
+            Cliente = cliente,
+            FechaHoraInicio = dto.FechaHoraInicio,
+            FechaHoraFin = dto.FechaHoraFin,
+            TipoTurno = TipoTurno.Cumpleanios,
+            EstadoTurno = EstadoTurno.Reservado,
+            PrecioPorPersonaAlReservar = configuracion.PrecioPorPersona,
+            CantidadJugadores = configuracion.CantidadJugadoresPorTurno,
+            PrecioTotal = precioTotal,
+            MontoSena = configuracion.MontoSena,
+            FechaVencimientoReserva = null,
+            FechaConfirmacion = DateTime.Now,
+            MotivoCancelacion = dto.Observacion?.Trim()
+        };
+
+        _contexto.Turnos.Add(turno);
+
+        await _contexto.SaveChangesAsync();
+
+        return new TurnoReservadoDto
+        {
+            TurnoId = turno.Id,
+            NombreCliente = $"{cliente.Nombre} {cliente.Apellido}",
+            TelefonoCliente = cliente.TelefonoCliente,
+            FechaHoraInicio = turno.FechaHoraInicio,
+            FechaHoraFin = turno.FechaHoraFin,
+            PrecioTotal = turno.PrecioTotal,
+            MontoSena = turno.MontoSena,
+            FechaVencimientoReserva = turno.FechaVencimientoReserva,
+            EstadoTurno = turno.EstadoTurno.ToString(),
+            TextoEstado = "Reserva especial",
+            AliasTransferencia = configuracion.AliasTransferencia,
+            NombreTitularTransferencia = configuracion.NombreTitularTransferencia,
+            MensajePagoReserva = configuracion.MensajePagoReserva,
+            TokenCancelacion = turno.TokenCancelacion
         };
     }
 
