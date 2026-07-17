@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
 import logoWilson from './assets/LogoWilson.png'
 
-const API_URL = 'https://localhost:7094/api'
-const CLAVE_DUENO = import.meta.env.VITE_ADMIN_KEY ?? ''
-const SESSION_DUENO_KEY = 'wilson_modo_dueno'
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:7094/api'
+const SESSION_TOKEN_DUENO_KEY = 'wilson_token_dueno'
 
 const datosReservaIniciales = {
   apellido: '',
   nombre: '',
   telefonoCliente: '',
+}
+
+const datosCambioClaveIniciales = {
+  claveActual: '',
+  claveNueva: '',
+  repetirClaveNueva: '',
 }
 
 const opcionesDiasSemana = [
@@ -97,10 +102,14 @@ function normalizarHoraParaApi(hora) {
   return hora.length === 5 ? `${hora}:00` : hora
 }
 
+function obtenerTokenAdmin() {
+  return sessionStorage.getItem(SESSION_TOKEN_DUENO_KEY) ?? ''
+}
+
 function obtenerHeadersAdmin(headers = {}) {
   return {
     ...headers,
-    'X-Admin-Key': CLAVE_DUENO,
+    'X-Admin-Token': obtenerTokenAdmin(),
   }
 }
 
@@ -162,16 +171,18 @@ function App() {
   const [errorReserva, setErrorReserva] = useState('')
   const [turnoConfirmado, setTurnoConfirmado] = useState(null)
 
-  // Control simple de acceso al panel del dueno.
-  // Mas adelante esto se reemplaza por login real con backend.
+  // Control de acceso al panel del dueño.
+  // Si existe token en sessionStorage, mantenemos la sesion al recargar la pagina.
   const [modoDueno, setModoDueno] = useState(
-    () => sessionStorage.getItem(SESSION_DUENO_KEY) === 'true',
+    () => Boolean(obtenerTokenAdmin()),
   )
   const [mostrarAccesoDueno, setMostrarAccesoDueno] = useState(
     () => window.location.pathname === '/admin',
   )
   const [claveDueno, setClaveDueno] = useState('')
+  const [ingresandoDueno, setIngresandoDueno] = useState(false)
   const [errorAccesoDueno, setErrorAccesoDueno] = useState('')
+  const [mensajeAccesoDueno, setMensajeAccesoDueno] = useState('')
 
   // Guardamos las reservas que el dueno tiene pendientes de revisar.
   const [turnosPendientes, setTurnosPendientes] = useState([])
@@ -214,6 +225,12 @@ function App() {
   const [guardandoConfiguracionNegocio, setGuardandoConfiguracionNegocio] = useState(false)
   const [errorConfiguracionNegocio, setErrorConfiguracionNegocio] = useState('')
   const [mensajeConfiguracionNegocio, setMensajeConfiguracionNegocio] = useState('')
+
+  // Datos del formulario para que el dueño pueda cambiar la contraseña del panel.
+  const [datosCambioClave, setDatosCambioClave] = useState(datosCambioClaveIniciales)
+  const [cambiandoClaveAdmin, setCambiandoClaveAdmin] = useState(false)
+  const [errorCambioClaveAdmin, setErrorCambioClaveAdmin] = useState('')
+  const [mensajeCambioClaveAdmin, setMensajeCambioClaveAdmin] = useState('')
 
   async function obtenerDisponibilidad(fecha) {
     setCargando(true)
@@ -503,6 +520,15 @@ function App() {
 
     setConfiguracionNegocio((configuracionActual) => ({
       ...configuracionActual,
+      [name]: value,
+    }))
+  }
+
+  function cambiarDatoCambioClave(evento) {
+    const { name, value } = evento.target
+
+    setDatosCambioClave((datosActuales) => ({
+      ...datosActuales,
       [name]: value,
     }))
   }
@@ -801,27 +827,89 @@ function App() {
     setHorarioSeleccionado(null)
   }
 
-  function ingresarModoDueno(evento) {
+  async function ingresarModoDueno(evento) {
     evento.preventDefault()
     setErrorAccesoDueno('')
+    setMensajeAccesoDueno('')
 
-    if (claveDueno !== CLAVE_DUENO) {
-      setErrorAccesoDueno('Clave incorrecta.')
-      return
+    setIngresandoDueno(true)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/autenticacion-admin/login`, {
+        body: JSON.stringify({
+          clave: claveDueno,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      const sesion = await respuesta.json()
+
+      // Guardamos solo el token temporal. La contraseña nunca queda guardada en el navegador.
+      sessionStorage.setItem(SESSION_TOKEN_DUENO_KEY, sesion.token)
+      setModoDueno(true)
+      setMostrarAccesoDueno(false)
+      setClaveDueno('')
+    } catch (errorActual) {
+      setErrorAccesoDueno(errorActual.message)
+    } finally {
+      setIngresandoDueno(false)
     }
-
-    sessionStorage.setItem(SESSION_DUENO_KEY, 'true')
-    setModoDueno(true)
-    setMostrarAccesoDueno(false)
-    setClaveDueno('')
   }
 
   function salirModoDueno() {
-    sessionStorage.removeItem(SESSION_DUENO_KEY)
+    sessionStorage.removeItem(SESSION_TOKEN_DUENO_KEY)
     setModoDueno(false)
     setMostrarAccesoDueno(false)
     setClaveDueno('')
     setErrorAccesoDueno('')
+    setMensajeAccesoDueno('')
+  }
+
+  async function cambiarClaveAdmin(evento) {
+    evento.preventDefault()
+    setErrorCambioClaveAdmin('')
+    setMensajeCambioClaveAdmin('')
+
+    if (datosCambioClave.claveNueva !== datosCambioClave.repetirClaveNueva) {
+      setErrorCambioClaveAdmin('La contraseña nueva y la repeticion no coinciden.')
+      return
+    }
+
+    setCambiandoClaveAdmin(true)
+
+    try {
+      const respuesta = await fetch(`${API_URL}/autenticacion-admin/cambiar-clave`, {
+        body: JSON.stringify({
+          claveActual: datosCambioClave.claveActual,
+          claveNueva: datosCambioClave.claveNueva,
+        }),
+        headers: obtenerHeadersAdmin({ 'Content-Type': 'application/json' }),
+        method: 'POST',
+      })
+
+      if (!respuesta.ok) {
+        throw new Error(await obtenerMensajeError(respuesta))
+      }
+
+      // El backend invalida las sesiones viejas al cambiar contraseña.
+      // Por eso cerramos el panel y pedimos que vuelva a ingresar.
+      sessionStorage.removeItem(SESSION_TOKEN_DUENO_KEY)
+      setDatosCambioClave(datosCambioClaveIniciales)
+      setModoDueno(false)
+      setMostrarAccesoDueno(true)
+      setMensajeAccesoDueno('Contraseña actualizada. Volve a ingresar con la nueva.')
+    } catch (errorActual) {
+      setErrorCambioClaveAdmin(errorActual.message)
+    } finally {
+      setCambiandoClaveAdmin(false)
+    }
   }
 
   const precioPorPersona = horarios.length > 0 ? horarios[0].precioPorPersona : 0
@@ -908,10 +996,15 @@ function App() {
                       <input
                         className="w-full rounded-xl border border-white/15 bg-white px-3 py-2 text-sm font-semibold text-[#061934] outline-none focus:border-[#d6a72b] sm:w-44"
                         onChange={(evento) => setClaveDueno(evento.target.value)}
-                        placeholder="Clave dueño"
+                        placeholder="Contraseña dueño"
                         type="password"
                         value={claveDueno}
                       />
+                      {mensajeAccesoDueno && (
+                        <p className="mt-1 text-xs font-bold text-[#aaf0bd]">
+                          {mensajeAccesoDueno}
+                        </p>
+                      )}
                       {errorAccesoDueno && (
                         <p className="mt-1 text-xs font-bold text-[#ffb4a8]">
                           {errorAccesoDueno}
@@ -920,10 +1013,11 @@ function App() {
                     </div>
 
                     <button
-                      className="rounded-xl bg-[#d6a72b] px-4 py-2 text-sm font-black text-[#061934] transition hover:bg-[#edc455]"
+                      className="rounded-xl bg-[#d6a72b] px-4 py-2 text-sm font-black text-[#061934] transition hover:bg-[#edc455] disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={ingresandoDueno}
                       type="submit"
                     >
-                      Entrar
+                      {ingresandoDueno ? 'Entrando...' : 'Entrar'}
                     </button>
                   </form>
                 )}
@@ -1157,6 +1251,91 @@ function App() {
 
         {esRutaAdmin && modoDueno && (
           <>
+        <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div>
+            <p className="text-sm font-bold uppercase text-[#d6a72b]">
+              Panel del dueño
+            </p>
+            <h2 className="text-2xl font-black text-[#0b2f63]">
+              Seguridad del panel
+            </h2>
+          </div>
+
+          <form
+            className="mt-5 rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+            onSubmit={cambiarClaveAdmin}
+          >
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="claveActual">
+                  Contraseña actual
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="claveActual"
+                  name="claveActual"
+                  onChange={cambiarDatoCambioClave}
+                  required
+                  type="password"
+                  value={datosCambioClave.claveActual}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="claveNueva">
+                  Nueva contraseña
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="claveNueva"
+                  minLength={8}
+                  name="claveNueva"
+                  onChange={cambiarDatoCambioClave}
+                  required
+                  type="password"
+                  value={datosCambioClave.claveNueva}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-[#0b2f63]" htmlFor="repetirClaveNueva">
+                  Repetir contraseña
+                </label>
+                <input
+                  className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+                  id="repetirClaveNueva"
+                  minLength={8}
+                  name="repetirClaveNueva"
+                  onChange={cambiarDatoCambioClave}
+                  required
+                  type="password"
+                  value={datosCambioClave.repetirClaveNueva}
+                />
+              </div>
+            </div>
+
+            {mensajeCambioClaveAdmin && (
+              <p className="mt-4 rounded-xl border border-[#b8dfc2] bg-[#f0fff4] p-3 text-sm font-semibold text-[#1e6b35]">
+                {mensajeCambioClaveAdmin}
+              </p>
+            )}
+
+            {errorCambioClaveAdmin && (
+              <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+                {errorCambioClaveAdmin}
+              </p>
+            )}
+
+            <button
+              className="mt-4 rounded-xl bg-[#0b2f63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#164d95] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cambiandoClaveAdmin}
+              type="submit"
+            >
+              {cambiandoClaveAdmin ? 'Guardando...' : 'Cambiar contraseña'}
+            </button>
+          </form>
+        </section>
+
         <section className="rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>

@@ -1,4 +1,4 @@
-@Wilson_Futbol_5_HostAddress = http://localhost:5032
+﻿@Wilson_Futbol_5_HostAddress = http://localhost:5032
 @FechaPrueba = 2026-08-04
 @FechaHoraReserva = 2026-08-04T18:00:00
 @TurnoIdReservado = 1015
@@ -6,7 +6,48 @@
 @TurnoFijoId = 1
 @ExcepcionHorarioId = 2
 @HorarioAtencionId = 4
-@AdminKey = wilson2026
+@ClaveAdmin = completar-clave-admin-local
+@AdminToken = pegar-token-del-login
+@ClaveSoporte = completar-clave-soporte-local
+@ClaveNuevaReset = completar-nueva-clave-admin
+
+# Login del dueño.
+# Ejecuta esta consulta, copia el valor "token" de la respuesta
+# y pegalo en la variable @AdminToken de arriba.
+POST {{Wilson_Futbol_5_HostAddress}}/api/autenticacion-admin/login
+Content-Type: application/json
+
+{
+  "clave": "{{ClaveAdmin}}"
+}
+
+###
+
+# Cambiar contraseña del dueño.
+# Despues de cambiarla, el token anterior deja de servir y hay que hacer login otra vez.
+POST {{Wilson_Futbol_5_HostAddress}}/api/autenticacion-admin/cambiar-clave
+Content-Type: application/json
+X-Admin-Token: {{AdminToken}}
+
+{
+  "claveActual": "{{ClaveAdmin}}",
+  "claveNueva": "nueva-clave-segura"
+}
+
+###
+
+# Resetear contraseña del dueño con clave de soporte.
+# Esto se usa si el dueño se olvida la contraseña y vos necesitás recuperarle el acceso.
+# No necesita token admin, pero sí necesita la clave de soporte configurada en User Secrets o Render.
+POST {{Wilson_Futbol_5_HostAddress}}/api/autenticacion-admin/resetear-clave-soporte
+Content-Type: application/json
+
+{
+  "claveSoporte": "{{ClaveSoporte}}",
+  "claveNueva": "{{ClaveNuevaReset}}"
+}
+
+###
 
 # Consulta disponibilidad de una fecha.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/disponibilidad?fecha={{FechaPrueba}}
@@ -19,7 +60,7 @@ Accept: application/json
 # y pegalo en la variable @TurnoIdReservado de arriba.
 POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/confirmar/{{TurnoIdReservado}}
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -28,7 +69,7 @@ X-Admin-Key: {{AdminKey}}
 # Debe devolver 400 Bad Request porque el turno ya esta reservado.
 POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/confirmar/{{TurnoIdReservado}}
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 # Reserva valida.
@@ -112,7 +153,7 @@ Accept: application/json
 # Devuelve los turnos en espera de sena, con turnoId, cliente, telefono, monto y vencimiento.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/pendientes-confirmacion
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -122,7 +163,7 @@ X-Admin-Key: {{AdminKey}}
 # Debe cambiar el turno a CanceladoPorDueno y liberar el horario.
 POST {{Wilson_Futbol_5_HostAddress}}/api/turnos/rechazar-pendiente/{{TurnoIdReservado}}
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -131,7 +172,7 @@ X-Admin-Key: {{AdminKey}}
 # Sunday = 0, Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5, Saturday = 6.
 POST {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "nombre": "Enzo",
@@ -151,7 +192,7 @@ X-Admin-Key: {{AdminKey}}
 # Devuelve todos los turnos fijos cargados con cliente, dia, horario y estado.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -160,7 +201,7 @@ X-Admin-Key: {{AdminKey}}
 # y pegalo en la variable @TurnoFijoId de arriba.
 POST {{Wilson_Futbol_5_HostAddress}}/api/turnos-fijos/{{TurnoFijoId}}/desactivar
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -168,7 +209,7 @@ X-Admin-Key: {{AdminKey}}
 # Muestra feriados, vacaciones y dias especiales cargados.
 GET {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -176,7 +217,7 @@ X-Admin-Key: {{AdminKey}}
 # Ese dia no deberia devolver horarios disponibles.
 POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "fechaDesde": "2026-08-10",
@@ -193,7 +234,7 @@ X-Admin-Key: {{AdminKey}}
 # Ese dia deberia usar este horario en vez del horario semanal normal.
 POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "fechaDesde": "2026-08-11",
@@ -226,7 +267,7 @@ Accept: application/json
 # Al eliminarla, esa fecha vuelve a usar el horario normal semanal.
 DELETE {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario/{{ExcepcionHorarioId}}
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 
 ###
@@ -235,7 +276,7 @@ X-Admin-Key: {{AdminKey}}
 # Todo ese rango deberia devolver [] en disponibilidad.
 POST {{Wilson_Futbol_5_HostAddress}}/api/excepciones-horario
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "fechaDesde": "2026-08-20",
@@ -266,7 +307,7 @@ Accept: application/json
 # Devuelve la configuracion semanal que usa la disponibilidad.
 GET {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
@@ -275,7 +316,7 @@ X-Admin-Key: {{AdminKey}}
 # y pegalo en la variable @HorarioAtencionId de arriba.
 PUT {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion/{{HorarioAtencionId}}
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "activo": true,
@@ -289,7 +330,7 @@ X-Admin-Key: {{AdminKey}}
 # Usa el @HorarioAtencionId del dia que quieras cerrar.
 PUT {{Wilson_Futbol_5_HostAddress}}/api/horarios-atencion/{{HorarioAtencionId}}
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "activo": false,
@@ -300,18 +341,18 @@ X-Admin-Key: {{AdminKey}}
 ###
 
 # Obtener configuracion del negocio.
-# Devuelve precios, se�a y datos de transferencia.
+# Devuelve precios, seña y datos de transferencia.
 GET {{Wilson_Futbol_5_HostAddress}}/api/configuracion-negocio
 Accept: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 ###
 
 # Actualizar configuracion del negocio.
-# Cambia precio por persona, cantidad de jugadores, se�a y datos de transferencia.
+# Cambia precio por persona, cantidad de jugadores, seña y datos de transferencia.
 PUT {{Wilson_Futbol_5_HostAddress}}/api/configuracion-negocio
 Content-Type: application/json
-X-Admin-Key: {{AdminKey}}
+X-Admin-Token: {{AdminToken}}
 
 {
   "precioPorPersona": 6000,
@@ -319,5 +360,5 @@ X-Admin-Key: {{AdminKey}}
   "montoSena": 30000,
   "aliasTransferencia": "wilson.futbol5",
   "nombreTitularTransferencia": "Wilson Futbol 5",
-  "mensajePagoReserva": "Para confirmar la reserva, transferi la se�a y envia el comprobante al due�o."
+  "mensajePagoReserva": "Para confirmar la reserva, transferi la seña y envia el comprobante al dueño."
 }

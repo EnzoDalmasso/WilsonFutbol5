@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Wilson_Futbol_5.Aplicacion.Interfaces;
 using Wilson_Futbol_5.Aplicacion.Servicios;
 using Wilson_Futbol_5.Infraestructura.Persistencia;
+using Wilson_Futbol_5.Infraestructura.Seguridad;
 
 namespace Wilson_Futbol_5
 {
@@ -21,14 +22,23 @@ namespace Wilson_Futbol_5
             builder.Services.AddScoped<IServicioExcepcionesHorario, ServicioExcepcionesHorario>();
             builder.Services.AddScoped<IServicioHorariosAtencion, ServicioHorariosAtencion>();
             builder.Services.AddScoped<IServicioConfiguracionNegocio, ServicioConfiguracionNegocio>();
+            builder.Services.AddScoped<IServicioAutenticacionAdmin, ServicioAutenticacionAdmin>();
 
-            // Permitimos que el frontend local de Vite pueda llamar a la API durante el desarrollo.
+            // Al iniciar la app crea la primera contraseña del dueño si todavia no existe.
+            builder.Services.AddHostedService<InicializadorCredencialAdmin>();
+
+            // Leemos los origenes permitidos desde configuracion.
+            // En local vienen de appsettings.Development.json y en produccion de variables de entorno.
+            var origenesPermitidos = builder.Configuration
+                .GetSection("Cors:OrigenesPermitidos")
+                .Get<string[]>() ?? [];
+
             builder.Services.AddCors(opciones =>
             {
                 opciones.AddPolicy("FrontendLocal", politica =>
                 {
                     politica
-                        .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                        .WithOrigins(origenesPermitidos)
                         .AllowAnyHeader()
                         .AllowAnyMethod();
                 });

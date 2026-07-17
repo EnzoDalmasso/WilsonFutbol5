@@ -33,6 +33,10 @@ public class WilsonDbContext : DbContext
 
     public DbSet<NotificacionWhatsApp> NotificacionesWhatsApp => Set<NotificacionWhatsApp>();
 
+    public DbSet<CredencialAdmin> CredencialesAdmin => Set<CredencialAdmin>();
+
+    public DbSet<SesionAdmin> SesionesAdmin => Set<SesionAdmin>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -45,6 +49,8 @@ public class WilsonDbContext : DbContext
         ConfigurarConfiguracionNegocio(modelBuilder.Entity<ConfiguracionNegocio>());
         ConfigurarPenalizacion(modelBuilder.Entity<Penalizacion>());
         ConfigurarNotificacionWhatsApp(modelBuilder.Entity<NotificacionWhatsApp>());
+        ConfigurarCredencialAdmin(modelBuilder.Entity<CredencialAdmin>());
+        ConfigurarSesionAdmin(modelBuilder.Entity<SesionAdmin>());
 
         modelBuilder.Entity<ExcepcionHorario>(entidad =>
         {
@@ -347,5 +353,34 @@ public class WilsonDbContext : DbContext
             .WithMany(turno => turno.NotificacionesWhatsApp)
             .HasForeignKey(notificacion => notificacion.TurnoId)
             .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigurarCredencialAdmin(EntityTypeBuilder<CredencialAdmin> entidad)
+    {
+        entidad.ToTable("CredencialesAdmin");
+        entidad.HasKey(credencial => credencial.Id);
+
+        entidad.Property(credencial => credencial.HashClave)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        entidad.Property(credencial => credencial.SaltClave)
+            .HasMaxLength(100)
+            .IsRequired();
+    }
+
+    private static void ConfigurarSesionAdmin(EntityTypeBuilder<SesionAdmin> entidad)
+    {
+        entidad.ToTable("SesionesAdmin");
+        entidad.HasKey(sesion => sesion.Id);
+
+        entidad.Property(sesion => sesion.HashToken)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        entidad.HasIndex(sesion => sesion.HashToken)
+            .IsUnique();
+
+        entidad.HasIndex(sesion => new { sesion.Activa, sesion.FechaExpiracion });
     }
 }

@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Wilson_Futbol_5</RootNamespace>
+    <UserSecretsId>b9e3cc68-798e-4319-8011-b48939abe372</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
