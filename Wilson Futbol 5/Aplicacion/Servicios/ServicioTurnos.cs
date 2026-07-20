@@ -323,22 +323,57 @@ public class ServicioTurnos : IServicioTurnos
 
         var fechaHoraFin = dto.FechaHoraInicio.AddMinutes(duracionMinutos);
 
-        // Validamos que exista horario de atencion para el dia solicitado.
-        var horarioAtencion = await _contexto.HorariosAtencion
-            .FirstOrDefaultAsync(horario =>
-                horario.CanchaId == cancha.Id &&
-                horario.DiaSemana == dto.FechaHoraInicio.DayOfWeek &&
-                horario.Activo);
+        var fechaTurno = DateOnly.FromDateTime(dto.FechaHoraInicio);
 
-        if (horarioAtencion is null)
+        // Primero revisamos excepciones: feriados cerrados, vacaciones o apertura especial.
+        // Esto evita que alguien reserve por POST un dia que en disponibilidad figura cerrado.
+        var excepcionHorario = await _contexto.ExcepcionesHorario
+            .AsNoTracking()
+            .FirstOrDefaultAsync(excepcion =>
+                excepcion.CanchaId == cancha.Id &&
+                excepcion.FechaDesde <= fechaTurno &&
+                excepcion.FechaHasta >= fechaTurno);
+
+        TimeOnly horaApertura;
+        TimeOnly horaCierre;
+
+        if (excepcionHorario is not null)
         {
-            throw new InvalidOperationException("La cancha no atiende en el dia solicitado.");
+            if (!excepcionHorario.Abierto)
+            {
+                throw new InvalidOperationException(excepcionHorario.Motivo ?? "La cancha esta cerrada para la fecha solicitada.");
+            }
+
+            if (excepcionHorario.HoraApertura is null || excepcionHorario.HoraCierre is null)
+            {
+                throw new InvalidOperationException("La excepcion de horario no tiene apertura y cierre configurados.");
+            }
+
+            horaApertura = excepcionHorario.HoraApertura.Value;
+            horaCierre = excepcionHorario.HoraCierre.Value;
+        }
+        else
+        {
+            // Si no hay excepcion, usamos el horario semanal normal.
+            var horarioAtencion = await _contexto.HorariosAtencion
+                .AsNoTracking()
+                .FirstOrDefaultAsync(horario =>
+                    horario.CanchaId == cancha.Id &&
+                    horario.DiaSemana == dto.FechaHoraInicio.DayOfWeek &&
+                    horario.Activo);
+
+            if (horarioAtencion is null)
+            {
+                throw new InvalidOperationException("La cancha no atiende en el dia solicitado.");
+            }
+
+            horaApertura = horarioAtencion.HoraApertura;
+            horaCierre = horarioAtencion.HoraCierre;
         }
 
         // Convertimos apertura y cierre a DateTime para compararlos contra el horario pedido.
-        var fechaTurno = DateOnly.FromDateTime(dto.FechaHoraInicio);
-        var fechaHoraApertura = fechaTurno.ToDateTime(horarioAtencion.HoraApertura);
-        var fechaHoraCierre = fechaTurno.ToDateTime(horarioAtencion.HoraCierre);
+        var fechaHoraApertura = fechaTurno.ToDateTime(horaApertura);
+        var fechaHoraCierre = fechaTurno.ToDateTime(horaCierre);
 
         // Validamos que el turno completo entre dentro del horario de atencion.
         if (dto.FechaHoraInicio < fechaHoraApertura || fechaHoraFin > fechaHoraCierre)

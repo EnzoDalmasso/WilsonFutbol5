@@ -21,10 +21,6 @@ namespace Wilson_Futbol_5
             });
 
             // Add services to the container.
-
-            builder.Services.AddControllers();
-            // Add services to the container.
-
             builder.Services.AddControllers();
 
             builder.Services.AddScoped<IServicioTurnos, ServicioTurnos>();
@@ -58,8 +54,12 @@ namespace Wilson_Futbol_5
             builder.Services.AddOpenApi();
 
             // Leemos la cadena de conexion que usara EF Core para conectarse a PostgreSQL/Supabase.
-            var cadenaConexion = builder.Configuration.GetConnectionString("WilsonDb")
-                ?? throw new InvalidOperationException("No se encontro la cadena de conexion 'WilsonDb'.");
+            var cadenaConexion = builder.Configuration.GetConnectionString("WilsonDb");
+
+            if (string.IsNullOrWhiteSpace(cadenaConexion))
+            {
+                throw new InvalidOperationException("No se encontro la cadena de conexion 'WilsonDb'. Configurala en User Secrets o en las variables de entorno del hosting.");
+            }
 
             // Registramos el DbContext con PostgreSQL para que EF Core pueda acceder a Supabase.
             builder.Services.AddDbContext<WilsonDbContext>(opciones =>
