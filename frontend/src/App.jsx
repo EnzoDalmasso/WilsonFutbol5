@@ -2144,7 +2144,7 @@ function App() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
-                Panel del dueÃ±o
+                Panel del dueño
               </p>
               <h2 className="text-2xl font-black text-[#0b2f63]">
                 Turnos confirmados por fecha
@@ -2220,7 +2220,7 @@ function App() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-bold text-[#0b2f63]">TelÃ©fono</dt>
+                    <dt className="font-bold text-[#0b2f63]">Teléfono</dt>
                     <dd>{turno.telefonoCliente}</dd>
                   </div>
                   <div>
