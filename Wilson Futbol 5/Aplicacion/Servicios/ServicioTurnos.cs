@@ -48,6 +48,38 @@ public class ServicioTurnos : IServicioTurnos
         return turnosPendientes;
     }
 
+    public async Task<IReadOnlyList<TurnoConfirmadoDelDiaDto>> ObtenerTurnosConfirmadosPorFechaAsync(DateOnly fecha)
+    {
+        var inicioDia = fecha.ToDateTime(TimeOnly.MinValue);
+        var finDia = fecha.ToDateTime(TimeOnly.MaxValue);
+
+        // Traemos solo turnos confirmados porque esta agenda es para saber quien juega ese dia.
+        // Las reservas especiales tambien se incluyen si estan confirmadas, porque bloquean la cancha.
+        var turnosConfirmados = await _contexto.Turnos
+            .AsNoTracking()
+            .Where(turno =>
+                turno.FechaHoraInicio >= inicioDia &&
+                turno.FechaHoraInicio <= finDia &&
+                turno.EstadoTurno == EstadoTurno.Reservado)
+            .OrderBy(turno => turno.FechaHoraInicio)
+            .Select(turno => new TurnoConfirmadoDelDiaDto
+            {
+                TurnoId = turno.Id,
+                NombreCliente = $"{turno.Cliente.Nombre} {turno.Cliente.Apellido}",
+                TelefonoCliente = turno.Cliente.TelefonoCliente,
+                FechaHoraInicio = turno.FechaHoraInicio,
+                FechaHoraFin = turno.FechaHoraFin,
+                TipoTurno = turno.TipoTurno,
+                TipoTurnoTexto = turno.TipoTurno == TipoTurno.Cumpleanios
+                    ? "Cumpleanos / reserva especial"
+                    : "Turno normal",
+                PrecioTotal = turno.PrecioTotal
+            })
+            .ToListAsync();
+
+        return turnosConfirmados;
+    }
+
     public async Task<IReadOnlyList<ReservaEspecialDto>> ObtenerReservasEspecialesAsync()
     {
         var fechaActual = RelojNegocio.AhoraArgentina().Date;

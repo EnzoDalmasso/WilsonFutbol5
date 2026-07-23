@@ -158,6 +158,14 @@ X-Admin-Token: {{AdminToken}}
 
 ###
 
+# Consultar agenda confirmada por fecha.
+# Muestra quienes juegan en la fecha elegida.
+GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/confirmados?fecha={{FechaPrueba}}
+Accept: application/json
+X-Admin-Token: {{AdminToken}}
+
+###
+
 # Consultar reservas especiales.
 # Muestra cumpleanos y eventos cargados por el dueno.
 GET {{Wilson_Futbol_5_HostAddress}}/api/turnos/reservas-especiales

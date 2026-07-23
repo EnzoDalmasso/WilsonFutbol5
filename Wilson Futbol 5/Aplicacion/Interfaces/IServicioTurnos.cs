@@ -13,6 +13,9 @@ public interface IServicioTurnos
     // Devuelve los turnos que estan esperando que el dueno confirme la sena.
     Task<IReadOnlyList<TurnoPendienteConfirmacionDto>> ObtenerTurnosPendientesConfirmacionAsync();
 
+    // Devuelve los turnos ya confirmados de una fecha para mostrar la agenda diaria del dueno.
+    Task<IReadOnlyList<TurnoConfirmadoDelDiaDto>> ObtenerTurnosConfirmadosPorFechaAsync(DateOnly fecha);
+
     // Devuelve las reservas especiales ya cargadas por el dueno, como cumpleanos o eventos.
     Task<IReadOnlyList<ReservaEspecialDto>> ObtenerReservasEspecialesAsync();
 

@@ -47,6 +47,20 @@ public class TurnosController : ControllerBase
         return Ok(turnosPendientes);
     }
 
+    // Endpoint para que el dueno vea la agenda confirmada de una fecha.
+    // Ejemplo de uso:
+    // GET /api/turnos/confirmados?fecha=2026-07-23
+    [HttpGet("confirmados")]
+    [RequiereClaveAdmin]
+    public async Task<ActionResult<IReadOnlyList<TurnoConfirmadoDelDiaDto>>> ObtenerTurnosConfirmados(
+        [FromQuery] DateOnly fecha)
+    {
+        // La fecha llega desde el calendario del panel admin.
+        var turnosConfirmados = await _servicioTurnos.ObtenerTurnosConfirmadosPorFechaAsync(fecha);
+
+        return Ok(turnosConfirmados);
+    }
+
     // Endpoint para que el dueno vea los cumpleanos y reservas especiales cargadas.
     // Ejemplo de uso:
     // GET /api/turnos/reservas-especiales

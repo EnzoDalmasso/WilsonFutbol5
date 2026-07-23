@@ -228,6 +228,12 @@ function App() {
   // Guardamos las reservas que el dueno tiene pendientes de revisar.
   const [turnosPendientes, setTurnosPendientes] = useState([])
 
+  // Agenda confirmada que el dueno puede consultar por fecha.
+  const [fechaAgendaDueno, setFechaAgendaDueno] = useState(obtenerFechaHoy())
+  const [turnosConfirmadosDia, setTurnosConfirmadosDia] = useState([])
+  const [cargandoTurnosConfirmadosDia, setCargandoTurnosConfirmadosDia] = useState(false)
+  const [errorTurnosConfirmadosDia, setErrorTurnosConfirmadosDia] = useState('')
+
   // Estados propios del panel del dueno.
   const [cargandoPendientes, setCargandoPendientes] = useState(false)
   const [errorAdmin, setErrorAdmin] = useState('')
@@ -329,6 +335,29 @@ function App() {
       setErrorAdmin(errorActual.message)
     } finally {
       setCargandoPendientes(false)
+    }
+  }
+
+  async function obtenerTurnosConfirmadosDia(fecha = fechaAgendaDueno) {
+    setCargandoTurnosConfirmadosDia(true)
+    setErrorTurnosConfirmadosDia('')
+
+    try {
+      const respuesta = await fetch(`${API_URL}/turnos/confirmados?fecha=${fecha}`, {
+        headers: obtenerHeadersAdmin(),
+      })
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener los turnos confirmados.')
+      }
+
+      const datos = await respuesta.json()
+      setTurnosConfirmadosDia(datos)
+    } catch (errorActual) {
+      setTurnosConfirmadosDia([])
+      setErrorTurnosConfirmadosDia(errorActual.message)
+    } finally {
+      setCargandoTurnosConfirmadosDia(false)
     }
   }
 
@@ -467,6 +496,7 @@ function App() {
 
       // Despues de una accion del dueno, refrescamos pendientes y disponibilidad.
       await obtenerTurnosPendientesConfirmacion()
+      await obtenerTurnosConfirmadosDia(fechaAgendaDueno)
       await obtenerDisponibilidad(fechaSeleccionada)
     } catch (errorActual) {
       setErrorAdmin(errorActual.message)
@@ -548,6 +578,15 @@ function App() {
 
     obtenerTurnosPendientesConfirmacion()
   }, [modoDueno])
+
+  // Al entrar al panel o cambiar la fecha, cargamos la agenda confirmada del dueno.
+  useEffect(() => {
+    if (!modoDueno) {
+      return
+    }
+
+    obtenerTurnosConfirmadosDia(fechaAgendaDueno)
+  }, [modoDueno, fechaAgendaDueno])
 
   // Al cargar la pantalla, traemos tambien los turnos fijos del dueno.
   useEffect(() => {
@@ -782,6 +821,7 @@ function App() {
 
       // Refrescamos la agenda para que el bloqueo se vea al instante.
       await obtenerReservasEspeciales()
+      await obtenerTurnosConfirmadosDia(fechaAgendaDueno)
       await obtenerTurnosPendientesConfirmacion()
       await obtenerDisponibilidad(fechaSeleccionada)
     } catch (errorActual) {
@@ -818,6 +858,7 @@ function App() {
 
       // Refrescamos la lista y la disponibilidad porque ese bloque vuelve a quedar libre.
       await obtenerReservasEspeciales()
+      await obtenerTurnosConfirmadosDia(fechaAgendaDueno)
       await obtenerDisponibilidad(fechaSeleccionada)
     } catch (errorActual) {
       setErrorReservaEspecial(errorActual.message)
@@ -1568,7 +1609,7 @@ function App() {
         )}
 
         {panelAdminActivo === 'reservasEspeciales' && (
-        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[5] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div>
             <p className="text-sm font-bold uppercase text-[#d6a72b]">
               Panel del dueño
@@ -1803,7 +1844,7 @@ function App() {
         )}
 
         {panelAdminActivo === 'configuracion' && (
-        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[5] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2100,6 +2141,99 @@ function App() {
         </section>
 
         <section className="order-[3] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase text-[#d6a72b]">
+                Panel del dueÃ±o
+              </p>
+              <h2 className="text-2xl font-black text-[#0b2f63]">
+                Turnos confirmados por fecha
+              </h2>
+            </div>
+
+            <button
+              className="rounded-xl border border-[#0b2f63] bg-white px-4 py-2 text-sm font-black text-[#0b2f63] transition hover:bg-[#edf3ff] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={cargandoTurnosConfirmadosDia}
+              onClick={() => obtenerTurnosConfirmadosDia(fechaAgendaDueno)}
+              type="button"
+            >
+              {cargandoTurnosConfirmadosDia ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          <div className="mt-5 max-w-xs">
+            <label className="text-sm font-bold text-[#0b2f63]" htmlFor="fechaAgendaDueno">
+              Fecha de agenda
+            </label>
+            <input
+              className="mt-1 w-full rounded-xl border border-[#d6dce5] bg-white px-3 py-2 text-sm outline-none focus:border-[#d6a72b]"
+              id="fechaAgendaDueno"
+              min={obtenerFechaHoy()}
+              onChange={(evento) => setFechaAgendaDueno(evento.target.value)}
+              type="date"
+              value={fechaAgendaDueno}
+            />
+          </div>
+
+          {errorTurnosConfirmadosDia && (
+            <p className="mt-4 rounded-xl border border-[#e3b4aa] bg-[#fff5f2] p-3 text-sm font-semibold text-[#9a3d2d]">
+              {errorTurnosConfirmadosDia}
+            </p>
+          )}
+
+          {!cargandoTurnosConfirmadosDia && turnosConfirmadosDia.length === 0 && (
+            <div className="mt-5 rounded-xl border border-[#d6dce5] bg-[#f6f8fb] p-4 text-sm font-semibold text-[#566273]">
+              No hay turnos confirmados para esta fecha.
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {turnosConfirmadosDia.map((turno) => (
+              <article
+                className="rounded-2xl border border-[#d6dce5] bg-[#f8fafc] p-4"
+                key={turno.turnoId}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#d6a72b]">
+                      {turno.tipoTurnoTexto}
+                    </p>
+                    <h3 className="mt-1 text-xl font-black text-[#0b2f63]">
+                      {turno.nombreCliente}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-[#566273]">
+                      {turno.telefonoCliente}
+                    </p>
+                  </div>
+
+                  <span className="inline-flex w-fit rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-black text-[#0b2f63]">
+                    Confirmado
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Horario</dt>
+                    <dd>
+                      {formatearHora(turno.fechaHoraInicio)} a{' '}
+                      {formatearHora(turno.fechaHoraFin)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">TelÃ©fono</dt>
+                    <dd>{turno.telefonoCliente}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-[#0b2f63]">Total</dt>
+                    <dd>{formatearPrecio(turno.precioTotal)}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <p className="text-sm font-bold uppercase text-[#d6a72b]">
             Administración
           </p>
@@ -2132,7 +2266,7 @@ function App() {
         </section>
 
         {panelAdminActivo === 'horarios' && (
-        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[5] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2273,7 +2407,7 @@ function App() {
         )}
 
         {panelAdminActivo === 'turnosFijos' && (
-        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[5] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
@@ -2522,7 +2656,7 @@ function App() {
         )}
 
         {panelAdminActivo === 'excepciones' && (
-        <section className="order-[4] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
+        <section className="order-[5] rounded-[28px] border border-[#d6a72b]/35 bg-white p-5 text-[#061934] shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-[#d6a72b]">
